@@ -1,6 +1,6 @@
 from mesa import Agent
 
-class Package(Agent):
-    """A package to be delivered to a destination."""
+class Obstacle(Agent):
+    """An obstacle that drone's cannot fly over."""
     def __init__(self, model):
         super().__init__(model.next_id(), model)
