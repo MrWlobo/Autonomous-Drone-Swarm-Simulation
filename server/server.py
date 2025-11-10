@@ -49,7 +49,7 @@ def post_process_space(ax):
 
 simulator = ABMSimulator()
 drone_stats = DroneStats(1,1,0)
-model = DroneModel(10, 10, 4, 2, 'dummy', drone_stats=drone_stats, simulator=simulator)
+model = DroneModel(10, 10, 1, 1, 'dummy', drone_stats=drone_stats, simulator=simulator)
 
 renderer = SpaceRenderer(
     model,
