@@ -1,2 +1,6 @@
+from algorithms.dummy import Dummy
+
+
 def get_strategy_instance(name, model):
-    pass
+    if name == "dummy":
+        return Dummy(model)

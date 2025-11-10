@@ -2,6 +2,7 @@ import math
 from mesa import Model
 from mesa.discrete_space import OrthogonalMooreGrid
 from agents.drone import Drone
+from agents.package import Package
 from algorithms.helpers import get_strategy_instance
 from mesa.experimental.devs import ABMSimulator
 
@@ -24,6 +25,7 @@ class DroneModel(Model):
             width=10,
             height=10,
             num_drones=2,
+            num_packages=2,
             algorithm_name='test',
             drone_stats : DroneStats = None,
             simulator: ABMSimulator = None
@@ -44,6 +46,12 @@ class DroneModel(Model):
             model=self,
             n=num_drones,
             cell=self.random.choices(self.grid.all_cells.cells, k=num_drones),
+            )
+
+        Package.create_agents(
+            model=self,
+            n=num_packages,
+            cell=self.random.choices(self.grid.all_cells.cells, k=num_packages),
             )
 
 

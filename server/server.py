@@ -42,12 +42,14 @@ model_params = {
 
 def post_process_space(ax):
     ax.set_aspect("equal")
-    ax.set_xticks([])
-    ax.set_yticks([])
+    ax.set_xticks(range(model.width + 1))
+    ax.set_yticks(range(model.height + 1))
+    ax.grid(True)
+
 
 simulator = ABMSimulator()
 drone_stats = DroneStats(1,1,0)
-model = DroneModel(10, 10, 4, 'test', drone_stats=drone_stats, simulator=simulator)
+model = DroneModel(10, 10, 4, 2, 'dummy', drone_stats=drone_stats, simulator=simulator)
 
 renderer = SpaceRenderer(
     model,

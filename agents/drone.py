@@ -19,7 +19,8 @@ class Drone(CellAgent):
         action, target = self.strategy.decide(self)
 
         if action == DroneAction.MOVE_TO_CELL:
-            self.model.grid.move_agent(self, target)
+            target_cell = target
+            self.move_to_cell(target_cell)
         
         elif action == DroneAction.PICKUP_PACKAGE:
             self.pickup(target)
@@ -33,12 +34,17 @@ class Drone(CellAgent):
         elif action == DroneAction.WAIT:
             self.wait()
             
-        self.battery -= self.model.battery_drain_rate
+        self.battery -= self.battery_drain_rate
 
 
     # has to validate if the move is legal with the drone's speed etc.
-    def move_to(self, target_pos):
-        pass
+    def move_to_cell(self, target):
+        if target is None:
+            return
+        if self.cell:
+            self.cell.agents.remove(self)
+        target.agents.append(self)
+        self.cell = target
 
     def pickup(self, package):
         pass
