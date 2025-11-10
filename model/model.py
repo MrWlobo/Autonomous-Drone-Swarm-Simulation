@@ -1,7 +1,9 @@
+import math
 from mesa import Model
-from mesa.space import HexMultiGrid
+from mesa.discrete_space import OrthogonalMooreGrid
 from agents.drone import Drone
 from algorithms.helpers import get_strategy_instance
+from mesa.experimental.devs import ABMSimulator
 
 
 class DroneStats:
@@ -19,20 +21,30 @@ class DroneStats:
 class DroneModel(Model):
     def __init__(
             self,
-            width,
-            height,
-            num_drones,
-            algorithm_name,
-            drone_stats : DroneStats
+            width=10,
+            height=10,
+            num_drones=2,
+            algorithm_name='test',
+            drone_stats : DroneStats = None,
+            simulator: ABMSimulator = None
     ):
         super().__init__()
-        self.grid = HexMultiGrid(width, height, torus=False)
+        self.width = width
+        self.height = height
+        self.grid = OrthogonalMooreGrid([width, height], torus=False, capacity=math.inf, random=self.random)
         self.drone_stats: DroneStats = drone_stats
+        self.simulator = simulator
+        self.simulator.setup(self)
         # the strategy can access the model's parameters, like drone_stats,
         # from the 'self' argument passed to it
         self.strategy = get_strategy_instance(algorithm_name, self)
+        self.unique_id = 1
 
-        Drone.create_agents(model=self, n=num_drones)
+        Drone.create_agents(
+            model=self,
+            n=num_drones,
+            cell=self.random.choices(self.grid.all_cells.cells, k=num_drones),
+            )
 
 
     def step(self):
@@ -45,3 +57,7 @@ class DroneModel(Model):
         # 2. Activate all the agents.
         # Each agent will ask the strategy "What do I do?"
         self.agents.shuffle_do("step")
+
+    def next_id(self):
+        self.unique_id += 1
+        return self.unique_id-1

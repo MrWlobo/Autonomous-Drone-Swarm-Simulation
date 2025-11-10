@@ -1,17 +1,18 @@
 from mesa.agent import Agent
-
-from model.model import DroneModel
+# from model.model import DroneModel
+from mesa.discrete_space import CellAgent
 from algorithms.base import DroneAction
 
-class Drone(Agent):
-    def __init__(self, model: DroneModel):
-        super().__init__(model.next_id(), model)
+class Drone(CellAgent):
+    def __init__(self, model, cell=None):
+        super().__init__(model)
         self.speed = model.drone_stats.drone_speed
         self.battery = model.drone_stats.drone_battery_capacity
         self.battery_drain_rate = model.drone_stats.battery_drain_rate
         
         self.strategy = model.strategy
         self.package = None
+        self.cell = cell
 
 
     def step(self):
