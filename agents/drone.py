@@ -47,7 +47,11 @@ class Drone(CellAgent):
         self.cell = target
 
     def pickup(self, package):
-        pass
+        if package is None:
+            return
+
+        self.package = package
+        package.cell = None
 
     def dropoff(self, destination):
         pass

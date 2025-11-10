@@ -2,6 +2,7 @@ import math
 from mesa import Model
 from mesa.discrete_space import OrthogonalMooreGrid
 from agents.drone import Drone
+from agents.drop_zone import DropZone
 from agents.package import Package
 from algorithms.helpers import get_strategy_instance
 from mesa.experimental.devs import ABMSimulator
@@ -48,11 +49,23 @@ class DroneModel(Model):
             cell=self.random.choices(self.grid.all_cells.cells, k=num_drones),
             )
 
-        Package.create_agents(
+        dropzone_cells = self.random.choices(self.grid.all_cells.cells, k=num_packages)
+
+        drop_zones = DropZone.create_agents(
+            model=self,
+            n=num_packages,
+            cell=dropzone_cells
+        )
+
+        packages = Package.create_agents(
             model=self,
             n=num_packages,
             cell=self.random.choices(self.grid.all_cells.cells, k=num_packages),
-            )
+            drop_zone=drop_zones
+        )
+
+        for i, package in enumerate(packages):
+            package.drop_zone = drop_zones[i]
 
 
     def step(self):
