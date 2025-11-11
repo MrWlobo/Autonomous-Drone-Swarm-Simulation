@@ -1,11 +1,13 @@
 from mesa.agent import Agent
 # from model.model import DroneModel
-from mesa.discrete_space import CellAgent
+from mesa.discrete_space import CellAgent, Cell
+from requests.packages import package
+
 from agents.package import Package
 from algorithms.base import DroneAction
 
 class Drone(CellAgent):
-    def __init__(self, model, cell=None, assigned_package: Package=None):
+    def __init__(self, model, cell=None, assigned_packages: list[Package]=None):
         super().__init__(model)
         self.speed = model.drone_stats.drone_speed
         self.battery = model.drone_stats.drone_battery_capacity
@@ -13,7 +15,7 @@ class Drone(CellAgent):
         
         self.strategy = model.strategy
         self.package = None
-        self.assigned_package = assigned_package
+        self.assigned_packages = assigned_packages
         self.cell = cell
 
 
@@ -40,24 +42,25 @@ class Drone(CellAgent):
 
 
     # has to validate if the move is legal with the drone's speed etc.
-    def move_to_cell(self, target):
+    def move_to_cell(self, target: Cell):
         if target is None:
             return
-        if self.cell:
-            self.cell.agents.remove(self)
-        target.agents.append(self)
         self.cell = target
 
     def pickup(self, package):
         if package is None:
             return
 
-        self.assigned_package = None
-        self.package = package
-        package.cell = None
+        if self.assigned_packages:
+            self.assigned_packages.pop(0)
+            self.package = package
+            package.cell = None
 
-    def dropoff(self, destination):
-        pass
+    def dropoff(self):
+        if self.package:
+            package = self.package
+            package.cell = self.cell
+            self.package = None
 
     def charge(self):
         pass

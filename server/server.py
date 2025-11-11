@@ -1,9 +1,11 @@
 import sys, os
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from agents.drone import Drone
 from agents.hub import Hub
 from agents.obstacle import Obstacle
 from agents.package import Package
+from agents.drop_zone import DropZone
 from model.model import DroneModel, DroneStats
 from mesa.experimental.devs import ABMSimulator
 from mesa.visualization import (
@@ -28,11 +30,13 @@ def drone_portrayal(agent):
     if isinstance(agent, Drone):
         portrayal.update(("color", "red"), ("zorder", 10))
     elif isinstance(agent, Hub):
-        portrayal.update(("marker", "p"), ("color", "cyan"), ("zorder", 1))
+        portrayal.update(("marker", "p"), ("color", "cyan"), ("zorder", 4))
     elif isinstance(agent, Obstacle):
         portrayal.update(("marker", "s"), ("color", "black"))
     elif isinstance(agent, Package):
-        portrayal.update(("marker", "*"), ("color", "brown"), ("zorder", 2))
+        portrayal.update(("marker", "*"), ("color", "brown"), ("zorder", 3))
+    elif isinstance(agent, DropZone):
+        portrayal.update(("marker", "o"), ("color", "green"), ("zorder", 2))
 
     return portrayal
 
@@ -51,8 +55,7 @@ def post_process_space(ax):
 
 simulator = ABMSimulator()
 drone_stats = DroneStats(1,1,0)
-# for now there has to be the same number of drones and packages (dummy algorithm)
-model = DroneModel(width=15, height=15, num_drones=4, num_packages=4, algorithm_name='dummy',
+model = DroneModel(width=15, height=15, num_drones=2, num_packages=4, algorithm_name='dummy',
                    drone_stats=drone_stats, simulator=simulator)
 
 renderer = SpaceRenderer(

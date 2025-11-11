@@ -9,8 +9,14 @@ class Dummy(Strategy):
         pass
 
     def decide(self, drone):
-        if drone.package is None:
-            package = drone.assigned_package
+        if not drone.package and not drone.assigned_packages:
+            return DroneAction.WAIT, drone.cell
+
+        elif drone.package and drone.cell == drone.package.drop_zone.cell:
+            return DroneAction.DROPOFF_PACKAGE, drone.cell
+
+        elif drone.package is None and drone.assigned_packages:
+            package = drone.assigned_packages[0]
             position = package.cell
 
             new_x, new_y = drone.cell.coordinate
@@ -63,15 +69,19 @@ class Dummy(Strategy):
             drop_zone=drop_zones
         )
 
-        drones = Drone.create_agents(
+        drones = list(Drone.create_agents(
             model=model,
             n=model.num_drones,
             cell=model.random.choices(model.grid.all_cells.cells, k=model.num_drones),
-            assigned_package=packages
-            )
+            assigned_packages=None
+            ))
 
         for i, package in enumerate(packages):
             package.drop_zone = drop_zones[i]
 
-        for i, drone in enumerate(drones):
-            drone.assigned_package = packages[i]
+        for i, package in enumerate(packages):
+            index = i % len(drones)
+            if drones[index].assigned_packages is None:
+                drones[index].assigned_packages = [package]
+            else:
+                drones[index].assigned_packages.append(package)
