@@ -25,9 +25,11 @@ class DroneModel(Model):
             self,
             width=10,
             height=10,
-            num_drones=2,
-            num_packages=2,
-            algorithm_name='test',
+            num_drones=None,
+            num_packages=None,
+            num_hubs=None,
+            hub_delivery_request_chance=None,
+            algorithm_name=None,
             drone_stats : DroneStats = None,
             simulator: ABMSimulator = None
     ):
@@ -36,6 +38,10 @@ class DroneModel(Model):
         self.height = height
         self.grid = OrthogonalMooreGrid([width, height], torus=False, capacity=math.inf, random=self.random)
         self.drone_stats: DroneStats = drone_stats
+        self.num_drones = num_drones
+        self.num_packages = num_packages
+        self.num_hubs = num_hubs
+        self.hub_delivery_request_chance = hub_delivery_request_chance
         self.simulator = simulator
         self.simulator.setup(self)
         # the strategy can access the model's parameters, like drone_stats,
@@ -43,29 +49,9 @@ class DroneModel(Model):
         self.strategy = get_strategy_instance(algorithm_name, self)
         self.unique_id = 1
 
-        Drone.create_agents(
-            model=self,
-            n=num_drones,
-            cell=self.random.choices(self.grid.all_cells.cells, k=num_drones),
-            )
+        self.strategy.grid_init(self)
 
-        dropzone_cells = self.random.choices(self.grid.all_cells.cells, k=num_packages)
-
-        drop_zones = DropZone.create_agents(
-            model=self,
-            n=num_packages,
-            cell=dropzone_cells
-        )
-
-        packages = Package.create_agents(
-            model=self,
-            n=num_packages,
-            cell=self.random.choices(self.grid.all_cells.cells, k=num_packages),
-            drop_zone=drop_zones
-        )
-
-        for i, package in enumerate(packages):
-            package.drop_zone = drop_zones[i]
+        
 
 
     def step(self):

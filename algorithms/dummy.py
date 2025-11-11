@@ -1,6 +1,7 @@
 from agents.drop_zone import DropZone
 from agents.package import Package
 from algorithms.base import Strategy, DroneAction
+from agents.drone import Drone
 
 
 class Dummy(Strategy):
@@ -45,3 +46,28 @@ class Dummy(Strategy):
                 None
             )
             return DroneAction.MOVE_TO_CELL, target_cell
+    
+    def grid_init(self, model):
+        Drone.create_agents(
+            model=model,
+            n=model.num_drones,
+            cell=model.random.choices(model.grid.all_cells.cells, k=model.num_drones),
+            )
+
+        dropzone_cells = model.random.choices(model.grid.all_cells.cells, k=model.num_packages)
+
+        drop_zones = DropZone.create_agents(
+            model=model,
+            n=model.num_packages,
+            cell=dropzone_cells
+        )
+
+        packages = Package.create_agents(
+            model=model,
+            n=model.num_packages,
+            cell=model.random.choices(model.grid.all_cells.cells, k=model.num_packages),
+            drop_zone=drop_zones
+        )
+
+        for i, package in enumerate(packages):
+            package.drop_zone = drop_zones[i]
