@@ -15,7 +15,7 @@ class HubAction(Enum):
     DEPLOY_DRONE = auto()               # Target: None
     COLLECT_DRONE = auto()              # Target: The drone to collect (in current cell)
     CREATE_DELIVERY_REQUEST = auto()    # Target: None
-
+    WAIT = auto()                       # Target: None
 
 class Strategy(ABC):
     def __init__(self, model):

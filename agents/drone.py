@@ -7,7 +7,7 @@ from agents.package import Package
 from algorithms.base import DroneAction
 
 class Drone(CellAgent):
-    def __init__(self, model, cell=None, assigned_packages: list[Package]=None):
+    def __init__(self, model, cell=None, assigned_packages: list[Package]=None, hub=None):
         super().__init__(model)
         self.speed = model.drone_stats.drone_speed
         self.battery = model.drone_stats.drone_battery_capacity
@@ -15,12 +15,20 @@ class Drone(CellAgent):
         
         self.strategy = model.strategy
         self.package = None
-        self.assigned_packages = assigned_packages
+
         self.cell = cell
+        self.assigned_packages = assigned_packages
+        self.hub = hub
 
-
+    def __eq__(self, other):
+        return other != None and self.unique_id == other.unique_id
+    
+    def __hash__(self):
+        return hash(self.unique_id)
+        
     def step(self):
-        action, target = self.strategy.decide(self)
+        output = self.model.strategy.decide(self)
+        action, target = output
 
         if action == DroneAction.MOVE_TO_CELL:
             target_cell = target
@@ -52,7 +60,7 @@ class Drone(CellAgent):
             return
 
         if self.assigned_packages:
-            self.assigned_packages.pop(0)
+            self.assigned_packages.remove(package)
             self.package = package
             package.cell = None
 

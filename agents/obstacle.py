@@ -1,6 +1,7 @@
-from mesa.discrete_space import FixedAgent
+from mesa.discrete_space import CellAgent
 
-class Obstacle(FixedAgent):
+class Obstacle(CellAgent):
     """An obstacle that drone's cannot fly over."""
     def __init__(self, model):
-        super().__init__(model.next_id(), model)
+        super().__init__(model)
+        
