@@ -26,13 +26,13 @@ def drone_portrayal(agent):
     )
 
     if isinstance(agent, Drone):
-        portrayal.update(("color", "red"), ("zorder", 2))
+        portrayal.update(("color", "red"), ("zorder", 10))
     elif isinstance(agent, Hub):
-        portrayal.update(("marker", "p"), ("color", "cyan"))
+        portrayal.update(("marker", "p"), ("color", "cyan"), ("zorder", 1))
     elif isinstance(agent, Obstacle):
         portrayal.update(("marker", "s"), ("color", "black"))
     elif isinstance(agent, Package):
-        portrayal.update(("marker", "*"), ("color", "brown"), ("zorder", 1))
+        portrayal.update(("marker", "*"), ("color", "brown"), ("zorder", 2))
 
     return portrayal
 
@@ -51,7 +51,8 @@ def post_process_space(ax):
 
 simulator = ABMSimulator()
 drone_stats = DroneStats(1,1,0)
-model = DroneModel(width=10, height=10, num_drones=1, num_packages=1, algorithm_name='dummy',
+# for now there has to be the same number of drones and packages (dummy algorithm)
+model = DroneModel(width=15, height=15, num_drones=4, num_packages=4, algorithm_name='dummy',
                    drone_stats=drone_stats, simulator=simulator)
 
 renderer = SpaceRenderer(

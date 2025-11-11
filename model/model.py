@@ -1,9 +1,6 @@
 import math
 from mesa import Model
 from mesa.discrete_space import OrthogonalMooreGrid
-from agents.drone import Drone
-from agents.drop_zone import DropZone
-from agents.package import Package
 from algorithms.helpers import get_strategy_instance
 from mesa.experimental.devs import ABMSimulator
 

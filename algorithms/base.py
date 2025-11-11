@@ -30,6 +30,10 @@ class Strategy(ABC):
     def decide(self, drone):
         """Called by a drone every step to get its command."""
         pass
+
+    @abstractmethod
+    def grid_init(self, model):
+        """Places agents on a grid."""
     
     def step(self):
         """

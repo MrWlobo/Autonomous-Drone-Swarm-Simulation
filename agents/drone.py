@@ -1,10 +1,11 @@
 from mesa.agent import Agent
 # from model.model import DroneModel
 from mesa.discrete_space import CellAgent
+from agents.package import Package
 from algorithms.base import DroneAction
 
 class Drone(CellAgent):
-    def __init__(self, model, cell=None):
+    def __init__(self, model, cell=None, assigned_package: Package=None):
         super().__init__(model)
         self.speed = model.drone_stats.drone_speed
         self.battery = model.drone_stats.drone_battery_capacity
@@ -12,6 +13,7 @@ class Drone(CellAgent):
         
         self.strategy = model.strategy
         self.package = None
+        self.assigned_package = assigned_package
         self.cell = cell
 
 
@@ -50,6 +52,7 @@ class Drone(CellAgent):
         if package is None:
             return
 
+        self.assigned_package = None
         self.package = package
         package.cell = None
 

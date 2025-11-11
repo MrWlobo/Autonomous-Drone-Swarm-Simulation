@@ -10,7 +10,7 @@ class Dummy(Strategy):
 
     def decide(self, drone):
         if drone.package is None:
-            package = [a for a in self.model.agents if isinstance(a, Package)][0]
+            package = drone.assigned_package
             position = package.cell
 
             new_x, new_y = drone.cell.coordinate
@@ -48,12 +48,6 @@ class Dummy(Strategy):
             return DroneAction.MOVE_TO_CELL, target_cell
     
     def grid_init(self, model):
-        Drone.create_agents(
-            model=model,
-            n=model.num_drones,
-            cell=model.random.choices(model.grid.all_cells.cells, k=model.num_drones),
-            )
-
         dropzone_cells = model.random.choices(model.grid.all_cells.cells, k=model.num_packages)
 
         drop_zones = DropZone.create_agents(
@@ -69,5 +63,15 @@ class Dummy(Strategy):
             drop_zone=drop_zones
         )
 
+        drones = Drone.create_agents(
+            model=model,
+            n=model.num_drones,
+            cell=model.random.choices(model.grid.all_cells.cells, k=model.num_drones),
+            assigned_package=packages
+            )
+
         for i, package in enumerate(packages):
             package.drop_zone = drop_zones[i]
+
+        for i, drone in enumerate(drones):
+            drone.assigned_package = packages[i]
