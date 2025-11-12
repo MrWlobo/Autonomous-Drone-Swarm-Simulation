@@ -1,5 +1,6 @@
 import sys, os
 
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from agents.drone import Drone
 from agents.hub import Hub
@@ -15,6 +16,7 @@ from mesa.visualization import (
     SpaceRenderer,
     make_plot_component,
 )
+import solara
 from mesa.visualization.components import AgentPortrayalStyle
 
 def drone_portrayal(agent):
@@ -41,7 +43,18 @@ def drone_portrayal(agent):
     return portrayal
 
 model_params = {
-
+    "algorithm_name": {
+        "type": "Select",
+        "value": 'hub_spawn',
+        "values": ['hub_spawn', 'dummy'],
+        "label": "Algorithm",
+    },
+    "num_drones": Slider("Number of Drones", 2, 1, 50),
+    "num_packages": Slider("Number of Packages", 4, 1, 50),
+    "num_hubs": Slider("Number of Hubs", 5, 1, 10),
+    "drone_speed": Slider("Drone Speed", 1, 1, 5),
+    "drone_battery": Slider("Drone Battery", 1, 1, 5),
+    "drain_rate": Slider("Drone Battery Drain Rate", 1, 1, 5),
 }
 
 def post_process_space(ax):
@@ -55,8 +68,18 @@ def post_process_space(ax):
 
 simulator = ABMSimulator()
 drone_stats = DroneStats(1,1,0)
-model = DroneModel(width=15, height=15, num_drones=2, num_packages=4, num_hubs=5,
-                   algorithm_name='hub_spawn', drone_stats=drone_stats, simulator=simulator)
+model = DroneModel(
+    width=15, 
+    height=15,
+    num_drones=model_params["num_drones"].value,
+    num_packages=model_params["num_packages"].value,
+    num_hubs=model_params["num_hubs"].value,
+    algorithm_name=model_params["algorithm_name"]["value"],
+    drone_speed=model_params["drone_speed"].value,
+    drone_battery=model_params["drone_battery"].value,
+    drain_rate=model_params["drain_rate"].value,
+    simulator=simulator
+)
 
 renderer = SpaceRenderer(
     model,
@@ -64,6 +87,7 @@ renderer = SpaceRenderer(
 )
 renderer.draw_agents(drone_portrayal)
 renderer.post_process = post_process_space
+
 
 page = SolaraViz(
     model,
