@@ -1,13 +1,16 @@
-from mesa.agent import Agent
-# from model.model import DroneModel
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from mesa.discrete_space import CellAgent, Cell
-from requests.packages import package
 
 from agents.package import Package
 from algorithms.base import DroneAction
 
+if TYPE_CHECKING:
+    from model.model import DroneModel
+    from agents.hub import Hub
+
 class Drone(CellAgent):
-    def __init__(self, model, cell=None, assigned_packages: list[Package]=None, hub=None):
+    def __init__(self, model: DroneModel, cell: Cell = None, assigned_packages: list[Package] = None, hub: Hub = None):
         super().__init__(model)
         self.speed = model.drone_stats.drone_speed
         self.battery = model.drone_stats.drone_battery_capacity
@@ -20,8 +23,8 @@ class Drone(CellAgent):
         self.assigned_packages = assigned_packages
         self.hub = hub
 
-    def __eq__(self, other):
-        return other != None and self.unique_id == other.unique_id
+    def __eq__(self, other: Drone):
+        return other is not None and self.unique_id == other.unique_id
     
     def __hash__(self):
         return hash(self.unique_id)
@@ -55,7 +58,7 @@ class Drone(CellAgent):
             return
         self.cell = target
 
-    def pickup(self, package):
+    def pickup(self, package: Package):
         if package is None:
             return
 

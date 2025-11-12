@@ -5,10 +5,10 @@ from agents.drone import Drone
 
 
 class Dummy(Strategy):
-    def register_drone(self, drone):
+    def register_drone(self, drone: Drone):
         pass
 
-    def decide(self, drone):
+    def decide(self, drone: Drone):
         if not drone.package and not drone.assigned_packages:
             return DroneAction.WAIT, drone.cell
 

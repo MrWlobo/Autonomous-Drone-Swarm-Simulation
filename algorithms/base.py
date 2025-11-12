@@ -1,6 +1,11 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from mesa import Agent
+
+if TYPE_CHECKING:
+    from model.model import DroneModel
+    from agents.drone import Drone
 
 class DroneAction(Enum):
     """The set of low-level commands a drone can execute."""
@@ -18,21 +23,21 @@ class HubAction(Enum):
     WAIT = auto()                       # Target: None
 
 class Strategy(ABC):
-    def __init__(self, model):
+    def __init__(self, model: DroneModel):
         self.model = model
 
     @abstractmethod
-    def register_drone(self, drone):
+    def register_drone(self, drone: Drone):
         """Called by a drone at its creation to initialize its state."""
         pass
     
     @abstractmethod
-    def decide(self, drone):
+    def decide(self, drone: Drone):
         """Called by a drone every step to get its command."""
         pass
 
     @abstractmethod
-    def grid_init(self, model):
+    def grid_init(self, model: Drone):
         """Places agents on a grid."""
     
     def step(self):

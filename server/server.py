@@ -1,5 +1,5 @@
-import sys, os
-
+import sys
+import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from agents.drone import Drone
@@ -10,13 +10,10 @@ from agents.drop_zone import DropZone
 from model.model import DroneModel, DroneStats
 from mesa.experimental.devs import ABMSimulator
 from mesa.visualization import (
-    CommandConsole,
     Slider,
     SolaraViz,
     SpaceRenderer,
-    make_plot_component,
 )
-import solara
 from mesa.visualization.components import AgentPortrayalStyle
 
 def drone_portrayal(agent):

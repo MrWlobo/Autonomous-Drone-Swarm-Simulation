@@ -1,21 +1,27 @@
-from mesa.discrete_space import CellAgent
+from __future__ import annotations
+from typing import TYPE_CHECKING
+from mesa.discrete_space import CellAgent, Cell
+
 from agents.package import Package
-from agents.drone import Drone
 from algorithms.base import HubAction
 from agents.drop_zone import DropZone
+from agents.drone import Drone
 
+if TYPE_CHECKING:
+    from model.model import DroneModel
+    
 class Hub(CellAgent):
     """Station for drones: charges them, sends them on missions, and collects them upon return."""
 
-    def __init__(self, model, cell=None):
+    def __init__(self, model: DroneModel, cell: Cell = None):
         super().__init__(model)
         self.package_requests: list[Package] = []
         self.active_drones: list[Drone] = []
-        self.model = model
-        self.cell = cell
+        self.model: DroneModel = model
+        self.cell: Cell = cell
     
     def __eq__(self, other):
-        return other != None and self.unique_id == other.unique_id
+        return other is not None and self.unique_id == other.unique_id
     
     def __hash__(self):
         return hash(self.unique_id)
