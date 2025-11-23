@@ -2,6 +2,7 @@ import sys
 import os
 import matplotlib.pyplot as plt
 from matplotlib.patches import RegularPolygon
+from matplotlib.collections import PolyCollection
 import solara
 import numpy as np
 from mesa.experimental.devs import ABMSimulator
@@ -18,15 +19,20 @@ from agents.package import Package
 
 
 def get_screen_coords(q, r):
-    """
-    Converts Grid Coords (q,r) to Screen (x,y) for a Rectangular (Offset) Layout.
-    """
     width = 1.0
-
+    
     x = (q - (r % 2) / 2.0) * np.sqrt(3) * width
     y = r * 1.5 * width
-    
     return x, y
+
+
+def get_hex_offsets():
+    """
+    Generates the (x, y) offsets for a single hexagon vertices 
+    relative to its center (0,0).
+    """
+    angles = np.linspace(0, 2*np.pi, 7)[:-1] # 6 angles
+    return np.column_stack([np.cos(angles), np.sin(angles)])
 
 
 def agent_portrayal(agent):
@@ -54,21 +60,27 @@ def VisualizationComponent(model):
     fig = plt.Figure(figsize=(10, 8))
     ax = fig.add_subplot(111)
     
-    for cell in model.grid:
-        q, r = cell.coordinate
-        x, y = get_screen_coords(q, r)
+    all_coords = np.array([cell.coordinate for cell in model.grid])
+    
+    if len(all_coords) > 0:
+        qs = all_coords[:, 0]
+        rs = all_coords[:, 1]
         
-        hex_patch = RegularPolygon(
-            (x, y), 
-            numVertices=6, 
-            radius=1.0, 
-            orientation=np.radians(0), 
-            facecolor='none', 
-            edgecolor='#cccccc', 
-            linewidth=1,
+        xs, ys = get_screen_coords(qs, rs)
+        
+        hex_offsets = get_hex_offsets()
+        
+        centers = np.column_stack([xs, ys])
+        verts = centers[:, np.newaxis, :] + hex_offsets[np.newaxis, :, :]
+        
+        collection = PolyCollection(
+            verts, 
+            facecolors='none', 
+            edgecolors='#cccccc', 
+            linewidths=0.5,
             zorder=0
         )
-        ax.add_patch(hex_patch)
+        ax.add_collection(collection)
 
     batches = {}
 
@@ -76,16 +88,19 @@ def VisualizationComponent(model):
         if agent.pos is None: continue
         
         style = agent_portrayal(agent)
+        if style is None: 
+            continue
+        
         marker = style["marker"]
         
         if marker not in batches:
             batches[marker] = {"x": [], "y": [], "c": [], "s": [], "z": [], "a": []}
         
         q, r = agent.pos
-        x, y = get_screen_coords(q, r)
+        x_a, y_a = get_screen_coords(q, r) 
         
-        batches[marker]["x"].append(x)
-        batches[marker]["y"].append(y)
+        batches[marker]["x"].append(x_a)
+        batches[marker]["y"].append(y_a)
         batches[marker]["c"].append(style["color"])
         batches[marker]["s"].append(style["size"])
         batches[marker]["z"].append(style["zorder"])
@@ -103,12 +118,15 @@ def VisualizationComponent(model):
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
     ax.set_aspect("equal")
     ax.set_axis_off()
+    
     ax.autoscale(enable=True)
     
     solara.FigureMatplotlib(fig)
 
 
 model_params = {
+    "width": 50,
+    "height": 50,
     "algorithm_name": {
         "type": "Select",
         "value": 'dummy',
@@ -126,7 +144,8 @@ model_params = {
 simulator = ABMSimulator()
 
 initial_model = DroneModel(
-    width=15, height=15,
+    width=model_params['width'],
+    height=model_params['height'],
     num_drones=model_params["num_drones"].value,
     num_packages=model_params["num_packages"].value,
     num_hubs=model_params["num_hubs"].value,

@@ -21,8 +21,8 @@ class DroneStats:
 class DroneModel(Model):
     def __init__(
             self,
-            width=15,
-            height=15,
+            width=50,
+            height=50,
             num_drones=2,
             num_packages=4,
             num_hubs=5,
