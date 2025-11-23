@@ -48,8 +48,8 @@ class Drone(CellAgent):
         self.battery -= self.battery_drain_rate
 
     def move_to_cell(self, target: Cell):
-        print(target)
-        if target is None: return
+        if target is None: 
+            return
         
         self.move_to(target)
         self.pos = target.coordinate

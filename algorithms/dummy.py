@@ -8,38 +8,27 @@ class Dummy(Strategy):
         pass
 
     def decide(self, drone: Drone):
-        # 1. If idle (no package, no assignment), wait.
         if not drone.package and not drone.assigned_packages:
-            print("wait")
             return DroneAction.WAIT, drone.cell
 
-        # 2. If carrying package and at dropzone, drop it.
         elif drone.package and drone.cell == drone.package.drop_zone.cell:
-            print("DROPOFF_PACKAGE")
             return DroneAction.DROPOFF_PACKAGE, drone.cell
 
-        # 3. If assigned a package but not holding it, go get it.
         elif drone.package is None and drone.assigned_packages:
-            print("aa")
             package = drone.assigned_packages[0]
             
-            # Error handling: if package has no cell (already picked up?), wait.
             if package.cell is None: 
-                print("aaWAIT")
                 return DroneAction.WAIT, drone.cell
             
             target_cell = package.cell
             
-            # If we are AT the package, pick it up
             if drone.cell == target_cell:
                 return DroneAction.PICKUP_PACKAGE, package
 
-            # Otherwise, move towards it
             next_step = self.get_next_hex_step(drone.model, drone.cell, target_cell)
-            print("MOVE_TO_CELL")
+            
             return DroneAction.MOVE_TO_CELL, next_step
 
-        # 4. If holding package, go to dropzone.
         else:
             drop_zone = drone.package.drop_zone
             target_cell = drop_zone.cell
@@ -52,7 +41,6 @@ class Dummy(Strategy):
         """
         neighbors = list(current_cell.neighborhood)
         
-        # We now use the CORRECTED hex_distance function
         best_neighbor = min(
             neighbors, 
             key=lambda n: self.hex_distance(n.coordinate, target_cell.coordinate)
@@ -65,21 +53,15 @@ class Dummy(Strategy):
         1. Converts Odd-R Offset coordinates (col, row) to Axial (q, r).
         2. Calculates Manhattan distance on the Axial/Cube plane.
         """
-        # Unpack the Offset coordinates (col, row)
         col1, row1 = a
         col2, row2 = b
 
-        # --- STEP 1: Convert Offset (Odd-R) to Axial ---
-        # formula: q = col - (row - (row&1)) / 2
-        #          r = row
         q1 = col1 - (row1 - (row1 & 1)) // 2
         r1 = row1
         
         q2 = col2 - (row2 - (row2 & 1)) // 2
         r2 = row2
 
-        # --- STEP 2: Calculate Distance (Axial/Cube Manhattan) ---
-        # formula: (abs(dq) + abs(dq + dr) + abs(dr)) / 2
         dq = q1 - q2
         dr = r1 - r2
         return (abs(dq) + abs(dq + dr) + abs(dr)) / 2

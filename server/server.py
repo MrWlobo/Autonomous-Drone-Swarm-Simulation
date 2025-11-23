@@ -22,8 +22,8 @@ def get_screen_coords(q, r):
     Converts Grid Coords (q,r) to Screen (x,y) for a Rectangular (Offset) Layout.
     """
     width = 1.0
-    
-    x = (q + (r % 2) / 2.0) * np.sqrt(3) * width
+
+    x = (q - (r % 2) / 2.0) * np.sqrt(3) * width
     y = r * 1.5 * width
     
     return x, y
