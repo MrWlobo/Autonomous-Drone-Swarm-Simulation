@@ -1,9 +1,11 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from mesa.discrete_space import CellAgent, Cell
+import logging
 
 from agents.package import Package
 from algorithms.base import DroneAction
+from utils.distance import hex_distance
 
 if TYPE_CHECKING:
     from model.model import DroneModel
@@ -49,6 +51,10 @@ class Drone(CellAgent):
 
     def move_to_cell(self, target: Cell):
         if target is None: 
+            return
+        
+        if hex_distance(self.cell, target) > self.speed:
+            logging.warning(f"Drone tried to exceed its max speed, max={self.speed}, got={hex_distance(self.cell, target)}")
             return
         
         self.move_to(target)
