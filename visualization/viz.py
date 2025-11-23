@@ -7,7 +7,6 @@ import solara
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from model.model import DroneModel
 from agents.drone import Drone
 from agents.drop_zone import DropZone
 from agents.hub import Hub

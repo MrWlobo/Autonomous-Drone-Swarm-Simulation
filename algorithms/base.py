@@ -36,9 +36,6 @@ class Strategy(ABC):
         """Called by a drone every step to get its command."""
         pass
 
-    @abstractmethod
-    def grid_init(self, model: Drone):
-        """Places agents on a grid."""
     
     def step(self):
         """

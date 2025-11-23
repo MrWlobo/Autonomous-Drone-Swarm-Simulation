@@ -1,10 +1,10 @@
 import math
 from mesa import Model
-
 from mesa.discrete_space import HexGrid
-from algorithms.helpers import get_strategy_instance
+from algorithms.helpers import get_algorithm_instance
 from mesa.experimental.devs import ABMSimulator
 
+from model.initial_state import InitialStateSetter, RandomInitialStateSetter
 
 class DroneStats:
     def __init__(
@@ -21,13 +21,14 @@ class DroneStats:
 class DroneModel(Model):
     def __init__(
             self,
-            width=50,
-            height=50,
-            num_drones=2,
-            num_packages=4,
-            num_hubs=5,
-            hub_delivery_request_chance=None,
-            algorithm_name=None,
+            width: int = 50,
+            height: int = 50,
+            num_drones: int = 2,
+            num_packages: int = 4,
+            num_hubs: int = 5,
+            num_obstacles: int = 0,
+            initial_state_setter: InitialStateSetter = None,
+            algorithm_name: str = None,
             drone_speed: int = 1,
             drone_battery: int = 1,
             drain_rate: int = 0,
@@ -47,16 +48,21 @@ class DroneModel(Model):
         self.num_drones = num_drones
         self.num_packages = num_packages
         self.num_hubs = num_hubs
-        self.hub_delivery_request_chance = hub_delivery_request_chance
-        self.simulator = simulator
+        self.num_obstacles = num_obstacles
         
+        if initial_state_setter is None:
+            self.initial_state_setter = RandomInitialStateSetter()
+        else:
+            self.initial_state_setter = initial_state_setter
+        
+        self.simulator = simulator
         if self.simulator:
             self.simulator.setup(self)
             
-        self.strategy = get_strategy_instance(algorithm_name, self)
+        self.strategy = get_algorithm_instance(algorithm_name, self)
         self.unique_id = 1
 
-        self.strategy.grid_init(self)
+        self.initial_state_setter.set_initial_state(self)
 
 
     def step(self):

@@ -4,6 +4,7 @@ from algorithms.base import Strategy, HubAction, DroneAction
 from mesa.discrete_space import Cell
 from agents.drone import Drone
 from agents.hub import Hub
+from utils.distance import hex_distance
 
 class HubSpawn(Strategy):
     def register_drone(self, drone):
@@ -81,45 +82,7 @@ class HubSpawn(Strategy):
         # find the neighbor with the smallest distance to the target
         best_neighbor = min(
             neighbors, 
-            key=lambda n: self.hex_distance(n.coordinate, target_cell.coordinate)
+            key=lambda n: hex_distance(n, target_cell)
         )
         
         return DroneAction.MOVE_TO_CELL, best_neighbor
-
-
-    def hex_distance(self, a, b):
-        """
-        Calculates distance between two cells on an Offset Hex Grid (Odd-R).
-        """
-        col1, row1 = a
-        col2, row2 = b
-
-        # convert offset (odd-r) to axial
-        q1 = col1 - (row1 - (row1 & 1)) // 2
-        r1 = row1
-        
-        q2 = col2 - (row2 - (row2 & 1)) // 2
-        r2 = row2
-
-        # calculate distance
-        dq = q1 - q2
-        dr = r1 - r2
-        return (abs(dq) + abs(dq + dr) + abs(dr)) / 2
-
-    def grid_init(self, model):
-        # safely pick random cells for hubs
-        num_cells = model.num_hubs
-        
-        # get all cells from the grid iterator
-        all_cells = list(model.grid) 
-        
-        if len(all_cells) < num_cells:
-            raise ValueError("Grid too small for number of hubs")
-
-        cells = model.random.sample(all_cells, k=num_cells)
-        
-        Hub.create_agents(
-            model=model,
-            n=model.num_hubs,
-            cell=cells, # create_agents handles the list distribution
-        )

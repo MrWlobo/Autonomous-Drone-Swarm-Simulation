@@ -27,7 +27,11 @@ class Drone(CellAgent):
         else:
             self.pos = None
 
-        self.assigned_packages = assigned_packages
+        if assigned_packages is None:
+            self.assigned_packages = []
+        else:
+            self.assigned_packages = assigned_packages
+            
         self.hub = hub
 
     def step(self):
@@ -49,6 +53,7 @@ class Drone(CellAgent):
             
         self.battery -= self.battery_drain_rate
 
+
     def move_to_cell(self, target: Cell):
         if target is None: 
             return
@@ -60,12 +65,14 @@ class Drone(CellAgent):
         self.move_to(target)
         self.pos = target.coordinate
 
+
     def pickup(self, package: Package):
         if package and package in self.assigned_packages:
             self.assigned_packages.remove(package)
             self.package = package
             package.remove()
             package.pos = None
+
 
     def dropoff(self):
         if self.package:
