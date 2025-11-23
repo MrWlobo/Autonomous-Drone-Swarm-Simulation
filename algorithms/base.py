@@ -23,6 +23,10 @@ class HubAction(Enum):
     WAIT = auto()                       # Target: None
 
 class Strategy(ABC):
+    """Base class for drone cooperation strategies.
+    
+    Responsible for task management and coordination, should not be used to change simulation physics or rules.
+    """
     def __init__(self, model: DroneModel):
         self.model = model
 

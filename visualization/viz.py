@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 from matplotlib.collections import PolyCollection
 import numpy as np
 import solara
+from mesa.discrete_space import CellAgent
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -12,13 +13,22 @@ from agents.drop_zone import DropZone
 from agents.hub import Hub
 from agents.obstacle import Obstacle
 from agents.package import Package
+from model.model import DroneModel
 
 
-def VisualizationComponent(model):
-    fig = plt.Figure(figsize=(10, 8))
+def VisualizationComponent(model: DroneModel) -> None:
+    """Replaces the default SpaceRenderer to fully support HexGrid.
+
+    Args:
+        model (DroneModel): The model to visualize.
+    """
+    fig = plt.Figure()
     ax = fig.add_subplot(111)
     
     all_coords = np.array([cell.coordinate for cell in model.grid])
+    
+    min_x, max_x = 0, 1
+    min_y, max_y = 0, 1
     
     if len(all_coords) > 0:
         qs = all_coords[:, 0]
@@ -30,6 +40,10 @@ def VisualizationComponent(model):
         
         centers = np.column_stack([xs, ys])
         verts = centers[:, np.newaxis, :] + hex_offsets[np.newaxis, :, :]
+        
+        all_verts = verts.reshape(-1, 2)
+        min_x, min_y = np.min(all_verts, axis=0)
+        max_x, max_y = np.max(all_verts, axis=0)
         
         collection = PolyCollection(
             verts, 
@@ -73,27 +87,59 @@ def VisualizationComponent(model):
             alpha=data["a"]
         )
 
-    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    buffer = 1.0 
+    ax.set_xlim(min_x - buffer, max_x + buffer)
+    ax.set_ylim(min_y - buffer, max_y + buffer)
+    
     ax.set_aspect("equal")
     ax.set_axis_off()
+    ax.margins(0)
+
+    data_width = (max_x - min_x) + (buffer * 2)
+    data_height = (max_y - min_y) + (buffer * 2)
     
-    ax.autoscale(enable=True)
+    if data_height == 0:
+        data_height = 1 
+    
+    ratio = data_width / data_height
+    
+    base_height = 8
+    fig.set_size_inches(base_height * ratio, base_height)
+    
+    fig.tight_layout(pad=0)
     
     solara.FigureMatplotlib(fig)
 
 
-def get_screen_coords(q, r):
+def get_screen_coords(q: float, r: float) -> tuple[float, float]:
+    """
+    Converts hexagonal grid coordinates to Cartesian screen coordinates.
+
+    Args:
+        q (float): The column index (or horizontal coordinate) of the cell.
+        r (float): The row index (or vertical coordinate) of the cell.
+
+    Returns:
+        tuple[float, float]: A tuple (x, y) representing the Cartesian 
+        center coordinates of the hexagon on the plot.
+    """
     width = 1.0
     
     x = (q - (r % 2) / 2.0) * np.sqrt(3) * width
     y = r * 1.5 * width
+    
     return x, y
 
 
-def get_hex_offsets():
+def get_hex_offsets() -> np.ndarray:
     """
-    Generates the (x, y) offsets for a single hexagon vertices 
-    relative to its center (0,0).
+    Calculates the (x, y) vertex coordinates for a regular hexagon centered at (0, 0).
+
+    Applies a 30-degree rotation to the vertices to ensure the correct 
+    'pointy-topped' orientation for the grid.
+
+    Returns:
+        np.ndarray: A (6, 2) array containing the x and y coordinates of the vertices.
     """
     angles = np.linspace(0, 2 * np.pi, 7)[:-1] 
     
@@ -102,8 +148,18 @@ def get_hex_offsets():
     return np.column_stack([np.cos(flat_top_angles), np.sin(flat_top_angles)])
 
 
-def agent_portrayal(agent):
-    if agent is None: return None
+def agent_portrayal(agent: CellAgent) -> dict | None:
+    """
+    Determines the visual style attributes for a given agent instance.
+
+    Args:
+        agent (CellAgent): The simulation agent instance to be visualized.
+
+    Returns:
+        dict | None: A dictionary of style parameters or None if the agent is invalid.
+    """
+    if agent is None:
+        return None
     
     style = {"size": 50, "marker": "o", "zorder": 2, "alpha": 1.0}
     
