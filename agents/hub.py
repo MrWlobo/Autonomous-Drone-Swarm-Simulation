@@ -19,6 +19,12 @@ class Hub(CellAgent):
         self.active_drones: list[Drone] = []
         self.model: DroneModel = model
         self.cell: Cell = cell
+        
+        if cell:
+            cell.add_agent(self)
+            self.pos = cell.coordinate
+        else:
+            self.pos = None
     
     def __eq__(self, other):
         return other is not None and self.unique_id == other.unique_id

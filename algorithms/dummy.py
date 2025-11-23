@@ -3,85 +3,111 @@ from agents.package import Package
 from algorithms.base import Strategy, DroneAction
 from agents.drone import Drone
 
-
 class Dummy(Strategy):
     def register_drone(self, drone: Drone):
         pass
 
     def decide(self, drone: Drone):
+        # 1. If idle (no package, no assignment), wait.
         if not drone.package and not drone.assigned_packages:
+            print("wait")
             return DroneAction.WAIT, drone.cell
 
+        # 2. If carrying package and at dropzone, drop it.
         elif drone.package and drone.cell == drone.package.drop_zone.cell:
+            print("DROPOFF_PACKAGE")
             return DroneAction.DROPOFF_PACKAGE, drone.cell
 
+        # 3. If assigned a package but not holding it, go get it.
         elif drone.package is None and drone.assigned_packages:
+            print("aa")
             package = drone.assigned_packages[0]
-            position = package.cell
+            
+            # Error handling: if package has no cell (already picked up?), wait.
+            if package.cell is None: 
+                print("aaWAIT")
+                return DroneAction.WAIT, drone.cell
+            
+            target_cell = package.cell
+            
+            # If we are AT the package, pick it up
+            if drone.cell == target_cell:
+                return DroneAction.PICKUP_PACKAGE, package
 
-            new_x, new_y = drone.cell.coordinate
-            pack_x, pack_y = position.coordinate
+            # Otherwise, move towards it
+            next_step = self.get_next_hex_step(drone.model, drone.cell, target_cell)
+            print("MOVE_TO_CELL")
+            return DroneAction.MOVE_TO_CELL, next_step
 
-            if new_x != pack_x:
-                new_x += int((pack_x - new_x) / abs(pack_x - new_x))
-            elif new_y != pack_y:
-                new_y += int((pack_y - new_y) / abs(pack_y - new_y))
-            else:
-                drone.pickup(package)
-
-            target_cell = next(
-                (c for c in drone.model.grid.all_cells.cells if c.coordinate == (new_x, new_y)),
-                None
-            )
-            return DroneAction.MOVE_TO_CELL, target_cell
-
+        # 4. If holding package, go to dropzone.
         else:
             drop_zone = drone.package.drop_zone
-            position = drop_zone.cell
+            target_cell = drop_zone.cell
+            next_step = self.get_next_hex_step(drone.model, drone.cell, target_cell)
+            return DroneAction.MOVE_TO_CELL, next_step
 
-            new_x, new_y = drone.cell.coordinate
-            pack_x, pack_y = position.coordinate
-
-            if new_x != pack_x:
-                new_x += int((pack_x - new_x) / abs(pack_x - new_x))
-            elif new_y != pack_y:
-                new_y += int((pack_y - new_y) / abs(pack_y - new_y))
-
-            target_cell = next(
-                (c for c in drone.model.grid.all_cells.cells if c.coordinate == (new_x, new_y)),
-                None
-            )
-            return DroneAction.MOVE_TO_CELL, target_cell
+    def get_next_hex_step(self, model, current_cell, target_cell):
+        """
+        Calculates the best neighbor to move to using Axial Distance logic.
+        """
+        neighbors = list(current_cell.neighborhood)
+        
+        # We now use the CORRECTED hex_distance function
+        best_neighbor = min(
+            neighbors, 
+            key=lambda n: self.hex_distance(n.coordinate, target_cell.coordinate)
+        )
+        return best_neighbor
     
+    def hex_distance(self, a, b):
+        """
+        Calculates distance between two cells.
+        1. Converts Odd-R Offset coordinates (col, row) to Axial (q, r).
+        2. Calculates Manhattan distance on the Axial/Cube plane.
+        """
+        # Unpack the Offset coordinates (col, row)
+        col1, row1 = a
+        col2, row2 = b
+
+        # --- STEP 1: Convert Offset (Odd-R) to Axial ---
+        # formula: q = col - (row - (row&1)) / 2
+        #          r = row
+        q1 = col1 - (row1 - (row1 & 1)) // 2
+        r1 = row1
+        
+        q2 = col2 - (row2 - (row2 & 1)) // 2
+        r2 = row2
+
+        # --- STEP 2: Calculate Distance (Axial/Cube Manhattan) ---
+        # formula: (abs(dq) + abs(dq + dr) + abs(dr)) / 2
+        dq = q1 - q2
+        dr = r1 - r2
+        return (abs(dq) + abs(dq + dr) + abs(dr)) / 2
+
     def grid_init(self, model):
-        dropzone_cells = model.random.choices(model.grid.all_cells.cells, k=model.num_packages)
+        all_cells = list(model.grid)
+        
+        drop_zones = []
+        dropzone_cells = model.random.choices(all_cells, k=model.num_packages)
+        for cell in dropzone_cells:
+            dz = DropZone(model, cell)
+            drop_zones.append(dz)
+            
+        packages = []
+        package_cells = model.random.choices(all_cells, k=model.num_packages)
+        for i, cell in enumerate(package_cells):
+            p = Package(model, cell)
+            p.drop_zone = drop_zones[i]
+            packages.append(p)
 
-        drop_zones = DropZone.create_agents(
-            model=model,
-            n=model.num_packages,
-            cell=dropzone_cells
-        )
-
-        packages = Package.create_agents(
-            model=model,
-            n=model.num_packages,
-            cell=model.random.choices(model.grid.all_cells.cells, k=model.num_packages),
-            drop_zone=drop_zones
-        )
-
-        drones = list(Drone.create_agents(
-            model=model,
-            n=model.num_drones,
-            cell=model.random.choices(model.grid.all_cells.cells, k=model.num_drones),
-            assigned_packages=None
-            ))
-
-        for i, package in enumerate(packages):
-            package.drop_zone = drop_zones[i]
+        drones = []
+        drone_cells = model.random.choices(all_cells, k=model.num_drones)
+        for cell in drone_cells:
+            d = Drone(model, cell=cell)
+            
+            d.assigned_packages = []
+            drones.append(d)
 
         for i, package in enumerate(packages):
-            index = i % len(drones)
-            if drones[index].assigned_packages is None:
-                drones[index].assigned_packages = [package]
-            else:
-                drones[index].assigned_packages.append(package)
+            drone_index = i % len(drones)
+            drones[drone_index].assigned_packages.append(package)

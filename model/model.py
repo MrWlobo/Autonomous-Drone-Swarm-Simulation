@@ -1,6 +1,7 @@
 import math
 from mesa import Model
-from mesa.discrete_space import OrthogonalMooreGrid
+
+from mesa.discrete_space import HexGrid
 from algorithms.helpers import get_strategy_instance
 from mesa.experimental.devs import ABMSimulator
 
@@ -20,8 +21,8 @@ class DroneStats:
 class DroneModel(Model):
     def __init__(
             self,
-            width=10,
-            height=10,
+            width=15,
+            height=15,
             num_drones=2,
             num_packages=4,
             num_hubs=5,
@@ -35,7 +36,9 @@ class DroneModel(Model):
         super().__init__()
         self.width = width
         self.height = height
-        self.grid = OrthogonalMooreGrid([width, height], torus=False, capacity=math.inf, random=self.random)
+        
+        self.grid = HexGrid((width, height), torus=False, capacity=math.inf, random=self.random)
+        
         self.drone_stats: DroneStats = DroneStats(
             drone_speed=drone_speed,
             drone_battery=drone_battery,
@@ -46,26 +49,24 @@ class DroneModel(Model):
         self.num_hubs = num_hubs
         self.hub_delivery_request_chance = hub_delivery_request_chance
         self.simulator = simulator
-        self.simulator.setup(self)
-        # the strategy can access the model's parameters, like drone_stats,
-        # from the 'self' argument passed to it
+        
+        if self.simulator:
+            self.simulator.setup(self)
+            
         self.strategy = get_strategy_instance(algorithm_name, self)
         self.unique_id = 1
 
         self.strategy.grid_init(self)
-    
+
 
     def step(self):
         """Execute one simulation step."""
-        # 1. Allow the strategy to run any global logic
-        # (e.g., run a task auction) *before* agents move.
         if hasattr(self.strategy, "step"):
             self.strategy.step()
 
-        # 2. Activate all the agents.
-        # Each agent will ask the strategy "What do I do?"
         self.agents.shuffle_do("step")
+
 
     def next_id(self):
         self.unique_id += 1
-        return self.unique_id-1
+        return self.unique_id - 1

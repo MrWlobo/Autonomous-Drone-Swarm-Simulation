@@ -12,6 +12,12 @@ class Package(CellAgent):
         super().__init__(model)
         self.cell = cell
         self.drop_zone = drop_zone
+        
+        if cell:
+            cell.add_agent(self)
+            self.pos = cell.coordinate
+        else:
+            self.pos = None
 
     def __eq__(self, other: Package):
 

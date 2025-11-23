@@ -5,6 +5,12 @@ class DropZone(CellAgent):
     def __init__(self, model, cell: Cell = None):
         super().__init__(model)
         self.cell = cell
+        
+        if cell:
+            cell.add_agent(self)
+            self.pos = cell.coordinate
+        else:
+            self.pos = None
 
     def __eq__(self, other: CellAgent):
         return self.unique_id == other.unique_id
