@@ -70,13 +70,14 @@ class Drone(CellAgent):
         if package and package in self.assigned_packages:
             self.assigned_packages.remove(package)
             self.package = package
-            package.remove()
+            package.cell = None
             package.pos = None
 
 
     def dropoff(self):
         if self.package:
             package = self.package
-            self.cell.add_agent(package)
+            
+            package.move_to(self.cell)
             package.pos = self.cell.coordinate
             self.package = None
