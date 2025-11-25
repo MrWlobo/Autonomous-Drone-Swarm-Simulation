@@ -45,14 +45,20 @@ def VisualizationComponent(model: DroneModel) -> None:
         min_x, min_y = np.min(all_verts, axis=0)
         max_x, max_y = np.max(all_verts, axis=0)
         
-        collection = PolyCollection(
-            verts, 
-            facecolors='none', 
-            edgecolors='#cccccc', 
-            linewidths=0.5,
-            zorder=0,
-        )
-        ax.add_collection(collection)
+        if model.background is not None and os.path.exists(model.background):
+            img = plt.imread(model.background)
+            ax.imshow(img, extent=[min_x, max_x, min_y, max_y], zorder=-1, alpha=0.3)
+        
+        
+        if model.show_gridlines:
+            collection = PolyCollection(
+                verts, 
+                facecolors='none', 
+                edgecolors='#cccccc', 
+                linewidths=0.5,
+                zorder=0,
+            )
+            ax.add_collection(collection)
 
     batches = {}
 
@@ -109,6 +115,48 @@ def VisualizationComponent(model: DroneModel) -> None:
     fig.tight_layout(pad=0)
     
     solara.FigureMatplotlib(fig)
+
+
+@solara.component
+def Layout(children):
+    """
+    Custom Layout to hide the default Solara top bar.
+    """
+    return solara.AppLayout(
+        children=[
+            solara.Style("""
+                /* 1. COMPLETELY HIDE THE TOP BAR */
+                header.v-app-bar {
+                    display: none !important;
+                }
+                
+                .v-content.solara-content-main {
+                    padding-top: 0 !important;
+                }
+
+                /* 2. RESET MAIN CONTENT AREA 
+                   Forces the simulation grid to go to the very top. */
+                main.v-main {
+                    padding-top: 0px !important;
+                }
+
+                /* 3. STRETCH SIDEBAR TO FULL HEIGHT 
+                   Forces the sidebar to start at pixel 0 and end at the bottom. */
+                nav.v-navigation-drawer {
+                    top: 0px !important;
+                    height: 100vh !important;  /* 100% of Viewport Height */
+                    max-height: 100vh !important;
+                    margin-top: 0px !important;
+                    z-index: 100 !important;   /* Ensure it sits above other layers */
+                }
+
+                /* 4. ENSURE SIDEBAR INTERNAL CONTENT FILLS HEIGHT */
+                .v-navigation-drawer__content {
+                    height: 100vh !important;
+                }
+            """)
+        ] + children
+    )
 
 
 def get_screen_coords(q: float, r: float) -> tuple[float, float]:

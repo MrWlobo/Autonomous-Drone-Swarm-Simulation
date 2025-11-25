@@ -2,12 +2,18 @@ from mesa.experimental.devs import ABMSimulator
 from mesa.visualization import Slider, SolaraViz
 
 from model.model import DroneModel
-from visualization.viz import VisualizationComponent
+from visualization.viz import VisualizationComponent, Layout
 
 
 model_params = {
     "width": 50,
     "height": 50,
+    "preset_name": {
+        "type": "Select",
+        "value": None,
+        "values": ["None", 'hangzhou_35806'],
+        "label": "Preset",
+    },
     "algorithm_name": {
         "type": "Select",
         "value": 'dummy',
