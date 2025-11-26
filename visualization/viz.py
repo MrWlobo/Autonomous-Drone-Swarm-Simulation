@@ -2,6 +2,7 @@ import sys
 import os
 from matplotlib import pyplot as plt
 from matplotlib.collections import PolyCollection
+import matplotlib as mpl
 import numpy as np
 import solara
 from mesa.discrete_space import CellAgent
@@ -34,6 +35,21 @@ def VisualizationComponent(model: DroneModel) -> None:
         qs = all_coords[:, 0]
         rs = all_coords[:, 1]
         
+        heights = np.array([model.get_elevation(cell.coordinate) for cell in model.grid])
+
+        cmap = mpl.colormaps['terrain']
+
+        if heights.size > 0 and heights.max() > heights.min():
+            norm = mpl.colors.Normalize(vmin=heights.min(), vmax=heights.max())
+            cell_facecolors = cmap(norm(heights))
+        else:
+            cell_facecolors = np.full((len(heights), 4), cmap(0.5))
+        
+        target_alpha = 0.11
+        
+        if cell_facecolors.size > 0:
+            cell_facecolors[:, 3] = target_alpha
+        
         xs, ys = get_screen_coords(qs, rs)
         
         hex_offsets = get_hex_offsets()
@@ -53,7 +69,7 @@ def VisualizationComponent(model: DroneModel) -> None:
         if model.show_gridlines:
             collection = PolyCollection(
                 verts, 
-                facecolors='none', 
+                facecolors=cell_facecolors, 
                 edgecolors='#cccccc', 
                 linewidths=0.5,
                 zorder=0,
@@ -220,7 +236,7 @@ def agent_portrayal(agent: CellAgent) -> dict | None:
     elif isinstance(agent, Package):
         style.update({"color": "brown", "marker": "*", "size": 80, "zorder": 5})
     elif isinstance(agent, DropZone):
-        style.update({"color": "green", "marker": "s", "size": 80, "zorder": 1, "alpha": 0.3})
+        style.update({"color": "green", "marker": "s", "size": 80, "zorder": 1, "alpha": 0.6})
     else:
         style.update({"color": "gray", "size": 20, "alpha": 0})
     

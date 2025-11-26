@@ -1,8 +1,8 @@
 from mesa.experimental.devs import ABMSimulator
-from mesa.visualization import Slider, SolaraViz
-
+from mesa.visualization import SolaraViz
+# Note: We no longer import Slider from mesa.visualization
 from model.model import DroneModel
-from visualization.viz import VisualizationComponent, Layout
+from visualization.viz import VisualizationComponent
 
 
 model_params = {
@@ -10,8 +10,8 @@ model_params = {
     "height": 50,
     "preset_name": {
         "type": "Select",
-        "value": None,
-        "values": ["None", 'hangzhou_35806'],
+        "value": "None",
+        "values": ["None", 'hangzhou_35806', 'shanghai_56909', 'yantai_31702', 'chongqing_38774'],
         "label": "Preset",
     },
     "algorithm_name": {
@@ -20,13 +20,68 @@ model_params = {
         "values": ['dummy', 'hub_spawn'],
         "label": "Algorithm",
     },
-    "num_drones": Slider("Number of Drones", 2, 1, 50),
-    "num_packages": Slider("Number of Packages", 4, 1, 50),
-    "num_obstacles": Slider("Number of Obstacles", 0, 0, 50),
-    "num_hubs": Slider("Number of Hubs", 0, 0, 10),
-    "drone_speed": Slider("Drone Speed", 1, 1, 5),
-    "drone_battery": Slider("Drone Battery", 1, 1, 5),
-    "drain_rate": Slider("Drone Battery Drain Rate", 1, 1, 5),
+    "initial_state_setter_name": {
+        "type": "Select",
+        "value": "random",
+        "values": ["random"],
+        "label": "Initial State",
+    },
+    "num_drones": {
+        "type": "SliderInt",
+        "value": 2,
+        "label": "Number of Drones",
+        "min": 1,
+        "max": 50,
+        "step": 1,
+    },
+    "num_packages": {
+        "type": "SliderInt",
+        "value": 4,
+        "label": "Number of Packages",
+        "min": 1,
+        "max": 50,
+        "step": 1,
+    },
+    "num_obstacles": {
+        "type": "SliderInt",
+        "value": 0,
+        "label": "Number of Obstacles",
+        "min": 0,
+        "max": 50,
+        "step": 1,
+    },
+    "num_hubs": {
+        "type": "SliderInt",
+        "value": 0,
+        "label": "Number of Hubs",
+        "min": 0,
+        "max": 10,
+        "step": 1,
+    },
+    "drone_speed": {
+        "type": "SliderInt",
+        "value": 1,
+        "label": "Drone Speed",
+        "min": 1,
+        "max": 5,
+        "step": 1,
+    },
+    "drone_battery": {
+        "type": "SliderInt",
+        "value": 1,
+        "label": "Drone Battery",
+        "min": 1,
+        "max": 5,
+        "step": 1,
+    },
+    "drain_rate": {
+        "type": "SliderInt",
+        "value": 1,
+        "label": "Drone Battery Drain Rate",
+        "min": 1,
+        "max": 5,
+        "step": 1,
+    },
 }
 
 simulator = ABMSimulator()
@@ -34,14 +89,16 @@ simulator = ABMSimulator()
 initial_model = DroneModel(
     width=model_params['width'],
     height=model_params['height'],
-    num_drones=model_params["num_drones"].value,
-    num_packages=model_params["num_packages"].value,
-    num_hubs=model_params["num_hubs"].value,
-    num_obstacles=model_params["num_obstacles"].value,
+    preset_name=model_params["preset_name"]["value"],
+    num_drones=model_params["num_drones"]["value"],
+    num_packages=model_params["num_packages"]["value"],
+    num_hubs=model_params["num_hubs"]["value"],
+    num_obstacles=model_params["num_obstacles"]["value"],
     algorithm_name=model_params["algorithm_name"]["value"],
-    drone_speed=model_params["drone_speed"].value,
-    drone_battery=model_params["drone_battery"].value,
-    drain_rate=model_params["drain_rate"].value,
+    initial_state_setter_name=model_params["initial_state_setter_name"]["value"], 
+    drone_speed=model_params["drone_speed"]["value"],
+    drone_battery=model_params["drone_battery"]["value"],
+    drain_rate=model_params["drain_rate"]["value"],
     simulator=simulator,
 )
 

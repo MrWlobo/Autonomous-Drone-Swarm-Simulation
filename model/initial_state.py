@@ -1,6 +1,7 @@
 from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING
+from noise import pnoise2
 
 from agents.drone import Drone
 from agents.drop_zone import DropZone
@@ -24,6 +25,46 @@ class InitialStateSetter(abc.ABC):
 class RandomInitialStateSetter(InitialStateSetter):
     """An InitialStateSetter implementation that places agents randomly on the grid."""
     def set_initial_state(self, model: DroneModel) -> None:
+        # set random cell elevations
+        
+        scale = 0.1       # How "zoomed in" the terrain is. Lower = wider hills. Higher = jagged.
+        octaves = 6       # Level of detail (more octaves = more "bumpy" texture)
+        persistence = 0.5 # How much the smaller details affect the shape
+        lacunarity = 2.0  # How much detail is added at each octave
+        
+        base_height = 100
+        height_variance = 50 # Heights will roughly range from base to base + variance
+        
+        seed_x = model.random.randint(0, 1000)
+        seed_y = model.random.randint(0, 1000)
+
+        for cell in model.grid:
+            q, r = cell.coordinate
+            
+            x_coord = (q * scale) + seed_x
+            y_coord = (r * scale) + seed_y
+            
+            noise_val = pnoise2(
+                x_coord, 
+                y_coord, 
+                octaves=octaves, 
+                persistence=persistence, 
+                lacunarity=lacunarity, 
+                repeatx=1024, 
+                repeaty=1024, 
+                base=0
+            )
+            
+            normalized_val = (noise_val + 1) / 2.0
+            
+            final_height = int(base_height + (normalized_val * height_variance))
+            
+            final_height = max(base_height, min(base_height + height_variance, final_height))
+            
+            model.set_elevation(cell.coordinate, final_height)
+        
+        # place agents randomly
+        
         available_cells = list(model.grid)
         model.random.shuffle(available_cells)
         
@@ -66,3 +107,19 @@ class RandomInitialStateSetter(InitialStateSetter):
             h = Obstacle(model, cell=cell)
             
             obstacles.append(h)
+            
+
+
+def get_initial_state_setter_instance(name: str) -> InitialStateSetter:
+    """Returns an InitialStateSetter subclass instance from a string representing its name.
+
+    Args:
+        name (str): Namne of the InitialStateSetter to use.
+
+    Returns:
+        InitialStateSetter: An InitialStateSetter subclass instance.
+    """
+    if name == "random":
+        return RandomInitialStateSetter()
+    else:
+        return None

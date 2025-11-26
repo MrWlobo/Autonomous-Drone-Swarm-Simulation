@@ -8,11 +8,11 @@ if TYPE_CHECKING:
     from model.model import DroneModel
 
 
-class Hangzhou35806Preset(Preset):
+class Yantai31702Preset(Preset):
     # one cell is assumed to be about 2m x 2m
-    width: int = 985 // 2
-    height: int = 1310 // 2
-    background: Path = Path(__file__).parent.parent.parent / "visualization/assets/Hangzhou_35806.png"
+    width: int = 489 // 2
+    height: int = 463 // 2
+    background: Path = Path(__file__).parent.parent.parent / "visualization/assets/Yantai_31702.png"
     show_gridlines = False
     
     
