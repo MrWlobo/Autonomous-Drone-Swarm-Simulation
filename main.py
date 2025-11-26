@@ -1,7 +1,7 @@
 from mesa.experimental.devs import ABMSimulator
 from mesa.visualization import SolaraViz
 from model.model import DroneModel
-from visualization.viz import VisualizationComponent
+from visualization.viz import VisualizationComponent, Layout # noqa: F401
 
 
 model_params = {
