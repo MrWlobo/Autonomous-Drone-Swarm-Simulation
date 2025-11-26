@@ -1,8 +1,7 @@
 from mesa.experimental.devs import ABMSimulator
 from mesa.visualization import SolaraViz
-# Note: We no longer import Slider from mesa.visualization
 from model.model import DroneModel
-from visualization.viz import VisualizationComponent
+from visualization.viz import VisualizationComponent, Layout
 
 
 model_params = {

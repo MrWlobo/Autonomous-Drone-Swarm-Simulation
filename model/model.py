@@ -7,7 +7,7 @@ from algorithms.helpers import get_algorithm_instance
 from mesa.experimental.devs import ABMSimulator
 from mesa.space import PropertyLayer
 
-from model.initial_state import InitialStateSetter, RandomInitialStateSetter, get_initial_state_setter_instance
+from model.initial_state import RandomInitialStateSetter, get_initial_state_setter_instance
 from model.presets.base import Preset
 from model.presets.helpers import get_preset_instance
 
