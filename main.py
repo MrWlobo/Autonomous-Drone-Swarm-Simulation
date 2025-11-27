@@ -77,7 +77,7 @@ model_params = {
         "type": "SliderInt",
         "value": 1,
         "label": "Drone Battery Drain Rate",
-        "min": 1,
+        "min": 0,
         "max": 5,
         "step": 1,
     },

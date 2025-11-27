@@ -59,8 +59,46 @@ def get_aoi_areas():
     
     bounding_boxes_d.to_csv(Path(__file__).parent / "insights" / "city_aoi_areas_delivery.csv", index=False)
     bounding_boxes_p.to_csv(Path(__file__).parent / "insights" / "city_aoi_areas_pickup.csv", index=False)
+    
+    return bounding_boxes_d, bounding_boxes_p
+
+
+def get_aoi_targets(bounding_boxes_d):
+    """Calculates the relative position of each delivery point in selected AOIs.
+    """
+    AOI_IDS = {
+        "Chongqing": 38774,
+        "Hangzhou": 35806,
+        "Shanghai": 56909,
+        "Yantai": 31702,
+    }
+    
+    bounding_boxes_d = bounding_boxes_d[bounding_boxes_d["aoi_id"].isin(AOI_IDS.values())]
+
+    df_d = pd.read_csv(Path(__file__).parent / "data" / "LaDe-D.csv")
+    
+    delivery_targets = df_d[df_d["aoi_id"].isin(AOI_IDS.values())]
+    
+    d_merged = delivery_targets.merge(bounding_boxes_d, on='city', how='left')
+    
+    d_merged['rel_west'] = (
+        (d_merged['delivery_gps_lng'] - d_merged['min_lng']) / 
+        (d_merged['max_lng'] - d_merged['min_lng'])
+    )
+    
+    d_merged['rel_south'] = (
+        (d_merged['delivery_gps_lat'] - d_merged['min_lat']) / 
+        (d_merged['max_lat'] - d_merged['min_lat'])
+    )
+    
+    d_merged['relative_pos'] = list(zip(d_merged['rel_west'], d_merged['rel_south']))
+    
+    d_merged = d_merged.iloc[:, 1:][["city", "relative_pos"]]
+    
+    d_merged.to_csv(Path(__file__).parent / "insights" / "delivery_points_relative.csv", index=False)
 
 
 if __name__ == "__main__":
     get_city_areas()
-    get_aoi_areas()
+    bounding_boxes_d, bounding_boxes_p = get_aoi_areas()
+    get_aoi_targets(bounding_boxes_d.copy())
