@@ -78,7 +78,7 @@ class RandomInitialStateSetter(InitialStateSetter):
         packages = []
         for i in range(model.num_packages):
             cell = available_cells.pop()
-            p = Package(model, cell, drop_zones[i])
+            p = Package(model, cell, 0.5, 2, drop_zones[i])
             
             packages.append(p)
 
@@ -104,9 +104,9 @@ class RandomInitialStateSetter(InitialStateSetter):
         obstacles = []
         for _ in range(model.num_obstacles):
             cell = available_cells.pop()
-            h = Obstacle(model, cell=cell)
+            o = Obstacle(model, cell=cell)
             
-            obstacles.append(h)
+            obstacles.append(o)
             
 
 
