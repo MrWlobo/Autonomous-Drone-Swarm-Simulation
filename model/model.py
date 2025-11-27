@@ -15,11 +15,17 @@ class DroneStats:
     def __init__(
             self,
             drone_speed,
+            drone_max_ascent_speed,
+            drone_max_descent_speed,
+            drone_height,
             drone_battery,
             drain_rate
     ):
         self.drone_speed = drone_speed
-        self.drone_battery_capacity = drone_battery
+        self.drone_max_ascent_speed = drone_max_ascent_speed,
+        self.drone_max_descent_speed = drone_max_descent_speed,
+        self.drone_height = drone_height
+        self.drone_battery = drone_battery
         self.battery_drain_rate = drain_rate
 
 
@@ -36,6 +42,9 @@ class DroneModel(Model):
             initial_state_setter_name: str = "random",
             algorithm_name: str = None,
             drone_speed: int = 1,
+            drone_max_ascent_speed: float = 5,
+            drone_max_descent_speed: float = 3,
+            drone_height: float = 0.5,
             drone_battery: int = 1,
             drain_rate: int = 0,
             simulator: ABMSimulator = None,
@@ -69,6 +78,9 @@ class DroneModel(Model):
         
         self.drone_stats: DroneStats = DroneStats(
             drone_speed=drone_speed,
+            drone_max_ascent_speed=drone_max_ascent_speed,
+            drone_max_descent_speed=drone_max_descent_speed,
+            drone_height=drone_height,
             drone_battery=drone_battery,
             drain_rate=drain_rate
         )

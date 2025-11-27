@@ -1,5 +1,3 @@
-from agents.drop_zone import DropZone
-from agents.package import Package
 from algorithms.base import Strategy, DroneAction
 from agents.drone import Drone
 from utils.distance import hex_distance
@@ -9,7 +7,10 @@ class Dummy(Strategy):
         pass
 
     def decide(self, drone: Drone):
-        if not drone.package and not drone.assigned_packages:
+        if drone.check_for_lack_of_energy() or drone.check_for_collision_with_terrain():
+            return DroneAction.DESTROY, None
+
+        elif not drone.package and not drone.assigned_packages:
             return DroneAction.WAIT, drone.cell
 
         elif drone.package and drone.cell == drone.package.drop_zone.cell:

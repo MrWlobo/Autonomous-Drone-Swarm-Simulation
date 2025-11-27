@@ -5,8 +5,8 @@ from visualization.viz import VisualizationComponent, Layout # noqa: F401
 
 
 model_params = {
-    "width": 50,
-    "height": 50,
+    "width": 20,
+    "height": 20,
     "preset_name": {
         "type": "Select",
         "value": "None",
@@ -67,10 +67,10 @@ model_params = {
     },
     "drone_battery": {
         "type": "SliderInt",
-        "value": 1,
+        "value": 100,
         "label": "Drone Battery",
         "min": 1,
-        "max": 5,
+        "max": 100,
         "step": 1,
     },
     "drain_rate": {

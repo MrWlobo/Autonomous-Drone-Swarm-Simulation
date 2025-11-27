@@ -14,6 +14,7 @@ class DroneAction(Enum):
     DROPOFF_PACKAGE = auto() # Target: None
     CHARGE = auto()          # Target: None
     WAIT = auto()            # Target: None
+    DESTROY = auto()         # Target: Drone
 
 class HubAction(Enum):
     """The set of low-level commands a hub can execute."""
