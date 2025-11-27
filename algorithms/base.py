@@ -15,6 +15,7 @@ class DroneAction(Enum):
     CHARGE = auto()          # Target: None
     WAIT = auto()            # Target: None
     DESTROY = auto()         # Target: Drone
+    REST = auto()            # Target: None
 
 class HubAction(Enum):
     """The set of low-level commands a hub can execute."""

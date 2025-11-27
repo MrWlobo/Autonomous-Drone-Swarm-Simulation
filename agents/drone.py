@@ -57,8 +57,9 @@ class Drone(CellAgent):
 
         elif action == DroneAction.DESTROY:
             self.destroy()
-            
-        self.battery -= self.battery_drain_rate
+
+        if action != DroneAction.REST:
+            self.battery -= self.battery_drain_rate
 
 
     def move_to_cell(self, target: Cell) -> None:
