@@ -17,6 +17,8 @@ class Drone(CellAgent):
         self.speed = model.drone_stats.drone_speed
         self.max_ascent_speed = model.drone_stats.drone_max_ascent_speed
         self.max_descent_speed = model.drone_stats.drone_max_descent_speed
+        self.current_ascent_speed = 0
+        self.current_descent_speed = 0
         self.height = model.drone_stats.drone_height
         self.battery = model.drone_stats.drone_battery
         self.battery_drain_rate = model.drone_stats.battery_drain_rate
@@ -57,6 +59,12 @@ class Drone(CellAgent):
 
         elif action == DroneAction.DESTROY:
             self.destroy()
+
+        elif action == DroneAction.ASCENT:
+            self.ascent()
+
+        elif action == DroneAction.DESCENT:
+            self.descent(target)
 
         if action != DroneAction.REST:
             self.battery -= self.battery_drain_rate
@@ -109,3 +117,12 @@ class Drone(CellAgent):
     def destroy(self) -> None:
         self.model.agents.remove(self)
         logging.warning(f"Drone destroyed at {self.pos}")
+
+    def ascent(self) -> None:
+        self.altitude += self.max_ascent_speed
+
+    def descent(self, elevation) -> None:
+        new_altitude = self.altitude - self.max_descent_speed
+        if new_altitude < elevation:
+            new_altitude = elevation
+        self.altitude = new_altitude
