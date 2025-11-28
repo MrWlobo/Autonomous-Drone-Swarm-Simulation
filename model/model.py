@@ -15,10 +15,12 @@ class DroneStats:
     def __init__(
             self,
             drone_speed,
+            drone_acceleration,
             drone_battery,
             drain_rate
     ):
         self.drone_speed = drone_speed
+        self.drone_acceleration = drone_acceleration
         self.drone_battery_capacity = drone_battery
         self.battery_drain_rate = drain_rate
 
@@ -36,6 +38,7 @@ class DroneModel(Model):
             initial_state_setter_name: str = "random",
             algorithm_name: str = None,
             drone_speed: int = 1,
+            drone_acceleration: int = 1,
             drone_battery: int = 1,
             drain_rate: int = 0,
             simulator: ABMSimulator = None,
@@ -56,7 +59,8 @@ class DroneModel(Model):
             initial_state_setter_name (str, optional): Name of an object that defines how the grid and agents should be initialized,
                                                                     see model.initial_state. Defaults to None.
             algorithm_name (str, optional): Name of drone cooperation algorithm to use, check out the algorithms module. Defaults to None.
-            drone_speed (int, optional): Drone speed (hex cells per tick). Defaults to 1.
+            drone_speed (int, optional): Drone maximum speed (hex cells per tick). Defaults to 1.
+            drone_acceleration (int, optional): Drone acceleration (hex cells per tick). Defaults to 1.
             drone_battery (int, optional): Drone battery capacity and initial value. Defaults to 1.
             drain_rate (int, optional): Drone battery drain rate (units per tick). Defaults to 0.
             simulator (ABMSimulator, optional): Simulato object to use to run the model. Defaults to None.
@@ -69,6 +73,7 @@ class DroneModel(Model):
         
         self.drone_stats: DroneStats = DroneStats(
             drone_speed=drone_speed,
+            drone_acceleration=drone_acceleration,
             drone_battery=drone_battery,
             drain_rate=drain_rate
         )
