@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+import requests
 
 
 def get_city_areas():
@@ -97,6 +98,39 @@ def get_aoi_targets(bounding_boxes_d):
     
     d_merged.to_csv(Path(__file__).parent / "insights" / "delivery_points_relative.csv", index=False)
 
+
+def get_elevation_batch(points: list[tuple[float, float]], batch_size: int = 50) -> list[dict[str, float]]:
+    """Gets Open-Elevation API data (90m data resolution) for a specified list of (latitude, longitude) points.
+
+    Args:
+        points (list[tuple[float, float]]): List of points (latitude, longitude) to get the elevation of.
+        batch_size (int, optional): Number of points to process in a batch. Defaults to 50.
+
+    Returns:
+        list[dict[str, float]]: A list of dictionaries with the latitude, longitude and elevation of each point.
+    """
+    url = 'https://api.open-elevation.com/api/v1/lookup'
+    results = []
+    
+    for i in range(0, len(points), batch_size):
+        batch = points[i:i + batch_size]
+        
+        payload = {
+            "locations": [{"latitude": lat, "longitude": lon} for lat, lon in batch]
+        }
+        
+        try:
+            print(f"Processing batch {i} to {i+len(batch)}...")
+            response = requests.post(url, json=payload)
+            if response.status_code == 200:
+                results.extend(response.json()['results'])
+            else:
+                print(f"Error on batch starting at index {i}")
+        except Exception as e:
+            print(f"Request failed for batch {i}: {e}")
+            
+    return results
+        
 
 if __name__ == "__main__":
     get_city_areas()

@@ -13,14 +13,12 @@ def get_delivery_locations(city: str, n: int, grid_width: int, grid_height: int)
     
     df[['x', 'y']] = pd.DataFrame(df['relative_pos'].tolist(), index=df.index)
     
-    df['x'] = (df['x'] * grid_width).round().clip(lower=0, upper=grid_width).astype(int)
-    df['y'] = (df['y'] * grid_height).round().clip(lower=0, upper=grid_height).astype(int)
+    df['x'] = (df['x'] * (grid_width - 1) + 1).round().clip(lower=1, upper=grid_width).astype(int)
+    df['y'] = (df['y'] * (grid_height - 1) + 1).round().clip(lower=1, upper=grid_height).astype(int)
     
     df = df[['x', 'y']]
     df = df.drop_duplicates()
     
     result = list(zip(df['x'], df['y']))
-    
-    print(result)
     
     return result

@@ -1,15 +1,19 @@
 import pandas as pd
 from pathlib import Path
+import os
 
 
 if __name__ == "__main__":
+    SAVE_PATH = Path(__file__).parent / "data"
+    os.makedirs(SAVE_PATH, exist_ok=True)
+
     # get Lade-D (Delivery)
     splits = {'delivery_cq': 'data/delivery_cq-00000-of-00001-465887add76aeabc.parquet', 'delivery_hz': 'data/delivery_hz-00000-of-00001-8090c86f64781f71.parquet', 'delivery_jl': 'data/delivery_jl-00000-of-00001-a4fbefe3c368583c.parquet', 'delivery_sh': 'data/delivery_sh-00000-of-00001-ad9a4b1d79823540.parquet', 'delivery_yt': 'data/delivery_yt-00000-of-00001-cc85c1fcb1d10955.parquet'}
     d = pd.DataFrame()
     for _, filename in splits.items():
         d = pd.concat([d, pd.read_parquet("hf://datasets/Cainiao-AI/LaDe-D/" + filename)])
 
-    d.to_csv(Path(__file__).parent / "data" / "LaDe-D.csv")
+    d.to_csv(SAVE_PATH / "LaDe-D.csv")
 
 
     # get LaDe-P (Pickup)
@@ -17,5 +21,5 @@ if __name__ == "__main__":
     p = pd.DataFrame()
     for _, filename in splits.items():
         p = pd.concat([p, pd.read_parquet("hf://datasets/Cainiao-AI/LaDe-P/" + filename)])
-    p.to_csv(Path(__file__).parent / "data" / "LaDe-P.csv")
+    p.to_csv(SAVE_PATH / "LaDe-P.csv")
     
