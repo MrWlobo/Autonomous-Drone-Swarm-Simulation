@@ -59,7 +59,7 @@ model_params = {
     },
     "drone_speed": {
         "type": "SliderInt",
-        "value": 10,
+        "value": 20,
         "label": "Drone Speed",
         "min": 1,
         "max": 20,
@@ -67,7 +67,7 @@ model_params = {
     },
     "drone_acceleration": {
         "type": "SliderInt",
-        "value": 5,
+        "value": 1,
         "label": "Drone Acceleration",
         "min": 1,
         "max": 5,
