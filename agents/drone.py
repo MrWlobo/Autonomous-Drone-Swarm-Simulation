@@ -5,7 +5,7 @@ import logging
 
 from agents.package import Package
 from algorithms.base import DroneAction
-from utils.distance import hex_distance, hex_vector, hex_vector_len, normalize_hex_vector, xy_to_qrs, qer_to_xy
+from utils.distance import *
 
 if TYPE_CHECKING:
     from model.model import DroneModel
@@ -23,6 +23,7 @@ class Drone(CellAgent):
         
         self.strategy = model.strategy
         self.package = None
+        self.cell = cell
         
         if cell:
             cell.add_agent(self)
@@ -37,6 +38,7 @@ class Drone(CellAgent):
             
         self.hub = hub
         self.grid = model.grid
+        self.model = model
 
     def step(self):
         if self.cell is None and self.pos is not None:
@@ -72,31 +74,62 @@ class Drone(CellAgent):
         self.move_to(target)
         self.pos = target.coordinate
 
-    def move_towards(self, target_cell: Cell, end_speed_percentage: float = 1):
+    def get_repulsive_vector(self, drone_cell: Cell):
+        repulsive_vector = (0,0,0)
+        height_difference = 0
+        d_min = sum([speed for speed in range(self.speed, 0, -self.get_acceleration())])/2
+        for other_drone in self.model.drones:
+            if other_drone.unique_id == self.unique_id:
+                continue
+            drone_distance = hex_distance(drone_cell, other_drone.cell)
+            # drone_height_difference = # TODO implement this
+            if drone_distance <= d_min:
+                weight = (1-drone_distance/d_min) / (1-self.model.communication_delay)
+                print('weight', weight)
+                repulsive_vector = add_hex_vectors(repulsive_vector, normalize_hex_vector(hex_vector(other_drone.cell, drone_cell), weight))
+        return repulsive_vector
+
+    def move_towards(self, target_cell: Cell,
+                     end_speed_percentage: float = 0,
+                     repulsive_vectors: bool = True):
         """ Move towards the target cell.
         args:
             target_cell: the cell to move towards
             end_speed: % of speed at the end [0 - 1]
+            repulsive_vectors: whether to add repulsive vectors to the movement
         """
         
         cur_speed = hex_vector_len(self.cur_speed_vec)
-        breaking_range = sum([speed for speed in range(cur_speed, 0, -self.get_acceleration())])
-
+        end_speed = round(self.speed * end_speed_percentage)
+        breaking_range = sum([speed for speed in range(cur_speed, end_speed, -self.get_acceleration())])
+        end_speed = max(end_speed, 1)   # we need to make sure it is at least 1
+        near_target = hex_distance(self.cell, target_cell) <= breaking_range + self.safety_margin
         # go faster (if possible) if we are far away
-        if hex_distance(self.cell, target_cell) > breaking_range + self.safety_margin:  
+        if near_target == False:  
             desired_speed = min(cur_speed + self.get_acceleration(), self.speed)    
-        else:
-            desired_speed = max(cur_speed - self.get_acceleration(), 1)
-        # slow down to end_speed if we are near target cell
-        elif end_speed_percentage != 0:
-            pass
-
-        # slow down to 1 cell per tick if we are near target cell
-        
             
-        self.cur_speed_vec = normalize_hex_vector(hex_vector(self.cell, target_cell), desired_speed)
-        cur_coords_hex = xy_to_qrs(self.cell.coordinate[0], self.cell.coordinate[1])
-        move_coords_hex = tuple(a + b for a, b in zip(cur_coords_hex, self.cur_speed_vec))
+        if near_target: # slow down to end_speed if we are near target cell
+            desired_speed = max(cur_speed - self.get_acceleration(), end_speed)
+
+        cur_acceleration =  desired_speed - cur_speed
+        acceleration_vec = normalize_hex_vector(hex_vector(self.cell, target_cell), abs(cur_acceleration))
+        if repulsive_vectors:
+            print('desired speed', desired_speed)
+            print('first acceleration_vec', acceleration_vec)
+            repulsive_vector = self.get_repulsive_vector(self.cell)
+            print('calculated repulsive vector', repulsive_vector)
+            acceleration_vec = tuple([self.model.target_direction_weight * coord for coord in acceleration_vec])
+            acceleration_vec = add_hex_vectors(acceleration_vec, repulsive_vector)
+            acceleration_vec = normalize_hex_vector(acceleration_vec, abs(cur_acceleration))
+            print('final acceleration vector', acceleration_vec)
+            self.cur_speed_vec = add_hex_vectors(self.cur_speed_vec, acceleration_vec)
+        elif cur_acceleration > 0:    # speed up towards target
+            self.cur_speed_vec = add_hex_vectors(self.cur_speed_vec, acceleration_vec)
+        else:   # slow down, no direction
+            self.cur_speed_vec = sub_hex_vectors(self.cur_speed_vec, normalize_hex_vector(self.cur_speed_vec, abs(cur_acceleration)))
+
+        cur_coords_hex = xy_to_qrs(self.cell.coordinate)
+        move_coords_hex = add_hex_vectors(cur_coords_hex, self.cur_speed_vec)
         move_cell_coords = qer_to_xy(move_coords_hex)
         move_cell = self.grid._cells[move_cell_coords]
         self.move_to_cell(move_cell)

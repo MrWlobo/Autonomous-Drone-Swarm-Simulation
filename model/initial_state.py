@@ -82,24 +82,23 @@ class RandomInitialStateSetter(InitialStateSetter):
             
             packages.append(p)
 
-        drones = []
+
         for _ in range(model.num_drones):
             cell = available_cells.pop()
             d = Drone(model, cell=cell)
-            
-            drones.append(d)
+            model.drones.append(d)
 
         for i, package in enumerate(packages):
-            drone_index = i % len(drones)
-            drones[drone_index].assigned_packages.append(package)
+            drone_index = i % len(model.drones)
+            model.drones[drone_index].assigned_packages.append(package)
             
         
-        hubs = []
+        model.hubs = []
         for _ in range(model.num_hubs):
             cell = available_cells.pop()
             h = Hub(model, cell=cell)
             
-            hubs.append(h)
+            model.hubs.append(h)
         
         obstacles = []
         for _ in range(model.num_obstacles):

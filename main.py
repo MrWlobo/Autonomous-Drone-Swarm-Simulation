@@ -5,8 +5,8 @@ from visualization.viz import VisualizationComponent, Layout # noqa: F401
 
 
 model_params = {
-    "width": 50,
-    "height": 50,
+    "width": 100,
+    "height": 100,
     "preset_name": {
         "type": "Select",
         "value": "None",

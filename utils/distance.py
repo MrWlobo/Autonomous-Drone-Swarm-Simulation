@@ -89,3 +89,9 @@ def normalize_hex_vector(vector: tuple[int, int, int], n: int) -> tuple[int, int
         else:
             s_round += 1
     return (int(q_round), int(r_round), int(s_round))
+
+def add_hex_vectors(vector1: tuple[int, int, int], vector2: tuple[int, int, int]) -> tuple[int, int, int]:
+    return (vector1[0] + vector2[0], vector1[1] + vector2[1], vector1[2] + vector2[2])
+
+def sub_hex_vectors(vector1: tuple[int, int, int], vector2: tuple[int, int, int]) -> tuple[int, int, int]:
+    return (vector1[0] - vector2[0], vector1[1] - vector2[1], vector1[2] - vector2[2])
