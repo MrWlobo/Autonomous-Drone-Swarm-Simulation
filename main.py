@@ -6,8 +6,8 @@ from visualization.viz import VisualizationComponent, Layout # pylint: disable=u
 
 
 model_params = {
-    "width": 20,
-    "height": 20,
+    "width": 100,
+    "height": 100,
     "preset_name": {
         "type": "Select",
         "value": "None",
@@ -60,8 +60,16 @@ model_params = {
     },
     "drone_speed": {
         "type": "SliderInt",
-        "value": 1,
+        "value": 20,
         "label": "Drone Speed",
+        "min": 1,
+        "max": 20,
+        "step": 1,
+    },
+    "drone_acceleration": {
+        "type": "SliderInt",
+        "value": 1,
+        "label": "Drone Acceleration",
         "min": 1,
         "max": 5,
         "step": 1,
@@ -97,6 +105,7 @@ initial_model = DroneModel(
     algorithm_name=model_params["algorithm_name"]["value"],
     initial_state_setter_name=model_params["initial_state_setter_name"]["value"], 
     drone_speed=model_params["drone_speed"]["value"],
+    drone_acceleration=model_params["drone_acceleration"]["value"],
     drone_battery=model_params["drone_battery"]["value"],
     drain_rate=model_params["drain_rate"]["value"],
     simulator=simulator,

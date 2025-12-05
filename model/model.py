@@ -15,6 +15,7 @@ class DroneStats:
     def __init__(
             self,
             drone_speed,
+            drone_acceleration,
             drone_max_ascent_speed,
             drone_max_descent_speed,
             drone_height,
@@ -22,6 +23,7 @@ class DroneStats:
             drain_rate
     ):
         self.drone_speed = drone_speed
+        self.drone_acceleration = drone_acceleration
         self.drone_max_ascent_speed = drone_max_ascent_speed,
         self.drone_max_descent_speed = drone_max_descent_speed,
         self.drone_height = drone_height
@@ -42,6 +44,7 @@ class DroneModel(Model):
             initial_state_setter_name: str = "random",
             algorithm_name: str = None,
             drone_speed: int = 1,
+            drone_acceleration: int = 1,
             drone_max_ascent_speed: float = 5,
             drone_max_descent_speed: float = 3,
             drone_height: float = 0.5,
@@ -65,7 +68,8 @@ class DroneModel(Model):
             initial_state_setter_name (str, optional): Name of an object that defines how the grid and agents should be initialized,
                                                                     see model.initial_state. Defaults to None.
             algorithm_name (str, optional): Name of drone cooperation algorithm to use, check out the algorithms module. Defaults to None.
-            drone_speed (int, optional): Drone speed (hex cells per tick). Defaults to 1.
+            drone_speed (int, optional): Drone maximum speed (hex cells per tick). Defaults to 1.
+            drone_acceleration (int, optional): Drone acceleration (hex cells per tick). Defaults to 1.
             drone_battery (int, optional): Drone battery capacity and initial value. Defaults to 1.
             drain_rate (int, optional): Drone battery drain rate (units per tick). Defaults to 0.
             simulator (ABMSimulator, optional): Simulato object to use to run the model. Defaults to None.
@@ -78,6 +82,7 @@ class DroneModel(Model):
         
         self.drone_stats: DroneStats = DroneStats(
             drone_speed=drone_speed,
+            drone_acceleration=drone_acceleration,
             drone_max_ascent_speed=drone_max_ascent_speed,
             drone_max_descent_speed=drone_max_descent_speed,
             drone_height=drone_height,
@@ -88,6 +93,8 @@ class DroneModel(Model):
         self.num_packages = num_packages
         self.num_hubs = num_hubs
         self.num_obstacles = num_obstacles
+        self.hubs = []
+        self.drones = []
         
         self.initial_state_setter = get_initial_state_setter_instance(initial_state_setter_name)
         if self.initial_state_setter is None:

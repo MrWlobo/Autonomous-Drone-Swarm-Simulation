@@ -76,13 +76,4 @@ class HubSpawn(Strategy):
     def move_towards(self, drone: Drone, target_cell: Cell):
         if drone.cell == target_cell:
             return DroneAction.WAIT, drone.cell
-
-        neighbors = list(drone.cell.neighborhood)
-        
-        # find the neighbor with the smallest distance to the target
-        best_neighbor = min(
-            neighbors, 
-            key=lambda n: hex_distance(n, target_cell)
-        )
-        
-        return DroneAction.MOVE_TO_CELL, best_neighbor
+        return DroneAction.MOVE_TO_CELL, target_cell
