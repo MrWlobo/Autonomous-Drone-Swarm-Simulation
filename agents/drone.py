@@ -19,7 +19,12 @@ class Drone(CellAgent):
         self.cur_speed_vec = (0,0,0)
         self.acceleration = model.drone_stats.drone_acceleration
         self.safety_margin = 5
-        self.battery = model.drone_stats.drone_battery_capacity
+        self.max_ascent_speed = model.drone_stats.drone_max_ascent_speed
+        self.max_descent_speed = model.drone_stats.drone_max_descent_speed
+        self.current_ascent_speed = 0
+        self.current_descent_speed = 0
+        self.height = model.drone_stats.drone_height
+        self.battery = model.drone_stats.drone_battery
         self.battery_drain_rate = model.drone_stats.battery_drain_rate
         
         self.strategy = model.strategy
@@ -29,6 +34,7 @@ class Drone(CellAgent):
         if cell:
             cell.add_agent(self)
             self.pos = cell.coordinate
+            self.altitude = model.get_elevation(self.pos) + 10 # Note: altitude reffers to the lowest part of the drone (excluding its package's height)
         else:
             self.pos = None
 
@@ -41,7 +47,7 @@ class Drone(CellAgent):
         self.grid = model.grid
         self.model = model
 
-    def step(self):
+    def step(self) -> None:
         if self.cell is None and self.pos is not None:
             self.cell = self.model.grid[self.pos]
 
@@ -57,14 +63,23 @@ class Drone(CellAgent):
         
         elif action == DroneAction.DROPOFF_PACKAGE:
             self.dropoff()
-            
-        self.battery -= self.battery_drain_rate
+
+        elif action == DroneAction.DESTROY:
+            self.destroy()
+
+        elif action == DroneAction.ASCENT:
+            self.ascent()
+
+        elif action == DroneAction.DESCENT:
+            self.descent(target)
+
+        if action != DroneAction.REST:
+            self.battery -= self.battery_drain_rate
 
     def get_acceleration(self) -> int:             # later we will add mass to the equation
         return self.acceleration
 
-
-    def move_to_cell(self, target: Cell):
+    def move_to_cell(self, target: Cell) -> None:
         if target is None: 
             return
         
@@ -154,7 +169,7 @@ class Drone(CellAgent):
         move_cell = self.grid._cells[move_cell_coords]
         self.move_to_cell(move_cell)
 
-    def pickup(self, package: Package):
+    def pickup(self, package: Package) -> None:
         if package and package in self.assigned_packages:
             self.assigned_packages.remove(package)
             self.package = package
@@ -162,10 +177,39 @@ class Drone(CellAgent):
             package.pos = None
 
 
-    def dropoff(self):
+    def dropoff(self) -> None:
         if self.package:
             package = self.package
             
             package.move_to(self.cell)
             package.pos = self.cell.coordinate
             self.package = None
+
+    def check_for_collision_with_drone(self, other: Drone) -> bool:
+        if self.altitude > other.altitude:
+            higher_drone_bottom = self.altitude - (self.package.height if self.package else 0)
+            lower_drone_top = other.altitude + other.height
+        else:
+            higher_drone_bottom = other.altitude - (other.package.height if other.package else 0)
+            lower_drone_top = self.altitude + self.height
+
+        return higher_drone_bottom <= lower_drone_top
+
+    def check_for_collision_with_terrain(self) -> bool:
+        return self.altitude < self.model.get_elevation(self.pos)
+
+    def check_for_lack_of_energy(self) -> bool:
+        return self.battery <= 0
+
+    def destroy(self) -> None:
+        self.model.agents.remove(self)
+        logging.warning(f"Drone destroyed at {self.pos}")
+
+    def ascent(self) -> None:
+        self.altitude += self.max_ascent_speed
+
+    def descent(self, elevation) -> None:
+        new_altitude = self.altitude - self.max_descent_speed
+        if new_altitude < elevation:
+            new_altitude = elevation
+        self.altitude = new_altitude

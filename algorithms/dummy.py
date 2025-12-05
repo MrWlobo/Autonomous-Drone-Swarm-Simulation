@@ -1,5 +1,3 @@
-from agents.drop_zone import DropZone
-from agents.package import Package
 from algorithms.base import Strategy, DroneAction
 from agents.drone import Drone
 from utils.distance import hex_distance
@@ -9,8 +7,11 @@ class Dummy(Strategy):
         pass
 
     def decide(self, drone: Drone):
-        if not drone.package and not drone.assigned_packages:
-            return DroneAction.WAIT, drone.cell
+        if drone.check_for_lack_of_energy() or drone.check_for_collision_with_terrain():
+            return DroneAction.DESTROY, None
+
+        elif not drone.package and not drone.assigned_packages:
+            return DroneAction.REST, drone.cell
 
         elif drone.package and drone.cell == drone.package.drop_zone.cell:
             return DroneAction.DROPOFF_PACKAGE, drone.cell
@@ -19,22 +20,30 @@ class Dummy(Strategy):
             package = drone.assigned_packages[0]
             
             if package.cell is None: 
-                return DroneAction.WAIT, drone.cell
+                return DroneAction.REST, drone.cell
             
             target_cell = package.cell
             
-            if drone.cell == target_cell:
+            if drone.cell == target_cell and drone.altitude == drone.model.get_elevation(target_cell.coordinate) + package.height:
                 return DroneAction.PICKUP_PACKAGE, package
+            elif drone.cell == target_cell and drone.altitude != drone.model.get_elevation(target_cell.coordinate) + package.height:
+                return DroneAction.DESCENT, drone.model.get_elevation(target_cell.coordinate) + package.height
 
             next_step = self.get_next_hex_step(drone.model, drone.cell, target_cell)
-            
-            return DroneAction.MOVE_TO_CELL, next_step
+
+            if drone.model.get_elevation(next_step.coordinate) > drone.altitude:
+                return DroneAction.ASCENT, None
+            else:
+                return DroneAction.MOVE_TO_CELL, next_step
 
         else:
             drop_zone = drone.package.drop_zone
             target_cell = drop_zone.cell
             next_step = self.get_next_hex_step(drone.model, drone.cell, target_cell)
-            return DroneAction.MOVE_TO_CELL, next_step
+            if drone.model.get_elevation(next_step.coordinate) > drone.altitude:
+                return DroneAction.ASCENT, None
+            else:
+                return DroneAction.MOVE_TO_CELL, next_step
 
 
     def get_next_hex_step(self, model, current_cell, target_cell):

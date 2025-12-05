@@ -8,9 +8,11 @@ if TYPE_CHECKING:
 
 class Package(CellAgent):
     """A package to be delivered to a destination."""
-    def __init__(self, model: DroneModel, cell: Cell = None, drop_zone: DropZone = None):
+    def __init__(self, model: DroneModel, cell: Cell = None, height: float = None, weight: float = None, drop_zone: DropZone = None):
         super().__init__(model)
         self.cell = cell
+        self.height = height
+        self.weight = weight
         self.drop_zone = drop_zone
         
         if cell:

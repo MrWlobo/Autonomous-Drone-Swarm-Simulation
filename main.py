@@ -1,7 +1,8 @@
 from mesa.experimental.devs import ABMSimulator
 from mesa.visualization import SolaraViz
 from model.model import DroneModel
-from visualization.viz import VisualizationComponent, Layout # noqa: F401
+# don't remove the 'unused' Layout import, it is necessary for custom CSS to work 
+from visualization.viz import VisualizationComponent, Layout # pylint: disable=unused-import # noqa: F401 
 
 
 model_params = {
@@ -75,17 +76,17 @@ model_params = {
     },
     "drone_battery": {
         "type": "SliderInt",
-        "value": 1,
+        "value": 100,
         "label": "Drone Battery",
         "min": 1,
-        "max": 5,
+        "max": 100,
         "step": 1,
     },
     "drain_rate": {
         "type": "SliderInt",
         "value": 1,
         "label": "Drone Battery Drain Rate",
-        "min": 1,
+        "min": 0,
         "max": 5,
         "step": 1,
     },
