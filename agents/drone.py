@@ -118,7 +118,7 @@ class Drone(CellAgent):
             new_speed = max(cur_speed - self.get_acceleration(), end_speed)
 
         speed_change =  new_speed - cur_speed
-        print(f"id: {self.unique_id}, cur_speed: {cur_speed}, new_speed: {new_speed}, speed_change: {speed_change}, end_speed: {end_speed}, breaking_range: {breaking_range}, near_target: {near_target}")
+        # print(f"id: {self.unique_id}, cur_speed: {cur_speed}, new_speed: {new_speed}, speed_change: {speed_change}, end_speed: {end_speed}, breaking_range: {breaking_range}, near_target: {near_target}")
         if speed_change > 0:    # speed up towards target
             target_vector = normalize_hex_vector(hex_vector(self.cell, target_cell), cur_speed)
             correct_vector = sub_hex_vectors(target_vector, self.cur_speed_vec)
@@ -140,7 +140,7 @@ class Drone(CellAgent):
 
         if repulsive_vectors:
             repulsive_vector, height_difference = self.get_repulsive_vector(target_cell)
-            print(f"id: {self.unique_id}, repulsive_vector: {repulsive_vector}")
+            # print(f"id: {self.unique_id}, repulsive_vector: {repulsive_vector}")
             change_vector = add_hex_vectors(change_vector, repulsive_vector)
             change_vector_len = min(hex_vector_len(change_vector), self.get_acceleration())
             change_vector = normalize_hex_vector(change_vector, change_vector_len)
