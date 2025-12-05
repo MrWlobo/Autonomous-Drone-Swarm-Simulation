@@ -44,8 +44,6 @@ class DroneModel(Model):
             simulator: ABMSimulator = None,
             background: Path = None,
             show_gridlines: bool = True,
-            communication_delay: float = 0.5,  # drone communication dalay used in repulsive vectors, <0.5 - 1) 0.5 means high delay
-            target_direction_weight: float = 1  # weight of target vector acceleration
     ):
         """_summary_
 
@@ -99,8 +97,6 @@ class DroneModel(Model):
         
         self.background = background
         self.show_gridlines = show_gridlines
-        self.communication_delay = communication_delay
-        self.target_direction_weight = target_direction_weight
 
         # if a preset is provided, all settings (that the preset defines) are over overwritten according to it
         if preset_name is not None:

@@ -95,3 +95,6 @@ def add_hex_vectors(vector1: tuple[int, int, int], vector2: tuple[int, int, int]
 
 def sub_hex_vectors(vector1: tuple[int, int, int], vector2: tuple[int, int, int]) -> tuple[int, int, int]:
     return (vector1[0] - vector2[0], vector1[1] - vector2[1], vector1[2] - vector2[2])
+
+def reverse_hex_vector(vector: tuple[int, int, int]) -> tuple[int, int, int]:
+    return (-vector[0], -vector[1], -vector[2])

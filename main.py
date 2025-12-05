@@ -108,6 +108,7 @@ initial_model = DroneModel(
     drone_battery=model_params["drone_battery"]["value"],
     drain_rate=model_params["drain_rate"]["value"],
     simulator=simulator,
+    show_gridlines=False,
 )
 
 page = SolaraViz(
