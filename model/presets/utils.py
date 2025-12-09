@@ -1,6 +1,17 @@
 from ast import literal_eval
+import ast
+import json
 from pathlib import Path
 import pandas as pd
+
+
+def load_elevation_grid(file_path):
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+    
+    parsed_data = {ast.literal_eval(k): v for k, v in data.items()}
+    
+    return parsed_data
 
 
 def get_delivery_locations(city: str, n: int, grid_width: int, grid_height: int):

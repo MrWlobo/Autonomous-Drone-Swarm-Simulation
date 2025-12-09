@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from pathlib import Path
-from noise import pnoise2
 import numpy as np
 
 from agents.drone import Drone
@@ -10,7 +9,7 @@ from agents.hub import Hub
 from agents.obstacle import Obstacle
 from agents.package import Package
 from model.initial_state import InitialStateSetter
-from model.presets.utils import get_delivery_locations
+from model.presets.utils import get_delivery_locations, load_elevation_grid
 
 from .base import Preset
 
@@ -35,46 +34,17 @@ class Hangzhou35806Preset(Preset):
 
 
 class Hangzhou35806InitialStateSetter(InitialStateSetter):
-    """An InitialStateSetter implementation that drop zones according to Hangzhou AOI 35806."""
+    """An InitialStateSetter implementation that places drop zones according to Hangzhou AOI 35806."""
     def set_initial_state(self, model: DroneModel) -> None:
         
-        # TEMPORARY set random cell elevations
+        # set cell elevations
+        elevation_data_path = Path(__file__).parent / "elevation/Hangzhou_elevation.json"
+        elevation_data = load_elevation_grid(elevation_data_path)
         
-        scale = 0.1 
-        octaves = 6 
-        persistence = 0.5 
-        lacunarity = 2.0  
         
-        base_height = 100
-        height_variance = 50
-        
-        seed_x = model.random.randint(0, 1000)
-        seed_y = model.random.randint(0, 1000)
-
         for cell in model.grid:
-            q, r = cell.coordinate
-            
-            x_coord = (q * scale) + seed_x
-            y_coord = (r * scale) + seed_y
-            
-            noise_val = pnoise2(
-                x_coord, 
-                y_coord, 
-                octaves=octaves, 
-                persistence=persistence, 
-                lacunarity=lacunarity, 
-                repeatx=1024, 
-                repeaty=1024, 
-                base=0
-            )
-            
-            normalized_val = (noise_val + 1) / 2.0
-            
-            final_height = int(base_height + (normalized_val * height_variance))
-            
-            final_height = max(base_height, min(base_height + height_variance, final_height))
-            
-            model.set_elevation(cell.coordinate, final_height)
+            cell_elevation = elevation_data[cell.coordinate]
+            model.set_elevation(cell.coordinate, cell_elevation)
         ######
         
         # place agents
