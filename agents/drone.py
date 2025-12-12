@@ -2,11 +2,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from mesa.discrete_space import CellAgent, Cell
 import logging
+import random
 
 from agents.package import Package
 from algorithms.base import DroneAction
 from utils.distance import *
-from math import ceil
+import math
+import numpy
 
 if TYPE_CHECKING:
     from model.model import DroneModel
@@ -18,11 +20,12 @@ class Drone(CellAgent):
         self.speed = model.drone_stats.drone_speed
         self.cur_speed_vec = (0,0,0)
         self.acceleration = model.drone_stats.drone_acceleration
-        self.safety_margin = 5
         self.max_ascent_speed = model.drone_stats.drone_max_ascent_speed
         self.max_descent_speed = model.drone_stats.drone_max_descent_speed
+        self.max_height = model.drone_stats.drone_max_height
+        self.min_height = model.drone_stats.drone_min_height
+        self.height_correct_margin = 5      # start pushing the drone down if it's too close to min/max height
         self.current_ascent_speed = 0
-        self.current_descent_speed = 0
         self.height = model.drone_stats.drone_height
         self.battery = model.drone_stats.drone_battery
         self.battery_drain_rate = model.drone_stats.battery_drain_rate
@@ -92,23 +95,33 @@ class Drone(CellAgent):
 
     def get_repulsive_vector(self, drone_cell: Cell):
         repulsive_vector = (0,0,0)
-        drone_height_difference = 0
+        drone_height_vector = 0
         cur_speed = hex_vector_len(self.cur_speed_vec)
         # breaking_range (sum of arithmetic sequence)
-        distance = self.speed / 2 * ceil(self.speed / self.get_acceleration())
+        max_distance_v = self.speed / 2 * math.ceil(self.speed / self.get_acceleration())
+        max_distance_h = 15
 
-        breaking_range = cur_speed / 2 * ceil(cur_speed / self.get_acceleration())
+        breaking_range = cur_speed / 2 * math.ceil(cur_speed / self.get_acceleration())
         breaking_range = round(breaking_range * 2 + 5)
         for other_drone in self.model.drones:
             if other_drone.unique_id == self.unique_id:
                 continue
             drone_distance = hex_distance(drone_cell, other_drone.cell)
-            drone_height_difference = 0 # TODO implement this
+            drone_height_difference = self.height - other_drone.height
             if drone_distance <= breaking_range:
-                weight = 1 - drone_distance/distance
-                repulsive_vector = add_hex_vectors(repulsive_vector, normalize_hex_vector(hex_vector(other_drone.cell, drone_cell), weight*self.get_acceleration()))
+                weight_v = 1 - drone_distance/max_distance_v
+                repulsive_vector = add_hex_vectors(repulsive_vector, normalize_hex_vector(hex_vector(other_drone.cell, drone_cell), weight_v*self.get_acceleration()))
+                
+            if abs(drone_height_difference) < max_distance_h:
+                weight_h = 1 - abs(drone_height_difference)/max_distance_h
+                if drone_height_difference >= 0:
+                    height_vector = weight_h * self.get_acceleration()
+                    drone_height_vector = min(height_vector, self.max_ascent_speed[0])
+                else:
+                    height_vector = weight_h * self.get_acceleration()
+                    drone_height_vector = - min(height_vector, self.max_descent_speed[0])
 
-        return repulsive_vector, drone_height_difference
+        return repulsive_vector, drone_height_vector
 
     def move_towards(self, target_cell: Cell,
                      end_speed_percentage: float = 0,
@@ -118,11 +131,12 @@ class Drone(CellAgent):
             target_cell: the cell to move towards
             end_speed: % of speed at the end [0 - 1]
             repulsive_vectors: whether to add repulsive vectors to the movement
+                                this includes repulsion vectors from other drones and current cell's terrain
         """
         
         cur_speed = hex_vector_len(self.cur_speed_vec)
         end_speed = round(self.speed * end_speed_percentage)
-        breaking_range = (cur_speed + end_speed)/2 * ceil((cur_speed - end_speed) / self.get_acceleration())
+        breaking_range = (cur_speed + end_speed)/2 * math.ceil((cur_speed - end_speed) / self.get_acceleration())
         end_speed = max(end_speed, 1)   # we need to make sure it is at least 1
         near_target = hex_distance(self.cell, target_cell) <= round(breaking_range * 1.5 + cur_speed + 5)
 
@@ -149,16 +163,32 @@ class Drone(CellAgent):
             if cur_speed <= self.get_acceleration():
                 change_vector = (0,0,0)
                 self.cur_speed_vec = normalize_hex_vector(hex_vector(self.cell, target_cell), cur_speed)
-            else:
-                change_vector = (0,0,0)
-                pass # TODO correct trajectory towards target (avoid orbiting around target)
+            elif cur_speed >= self.speed / 2:
+                target_vector = normalize_hex_vector(hex_vector(self.cell, target_cell), cur_speed)
+                correct_vector = sub_hex_vectors(target_vector, self.cur_speed_vec)
+                if hex_vector_len(correct_vector) <= self.get_acceleration():
+                    change_vector = (0,0,0)
+                else:
+                    change_vector = normalize_hex_vector(correct_vector, self.get_acceleration())
 
         if repulsive_vectors:
-            repulsive_vector, height_difference = self.get_repulsive_vector(target_cell)
-            # print(f"id: {self.unique_id}, repulsive_vector: {repulsive_vector}")
+            repulsive_vector, drone_height_vector = self.get_repulsive_vector(target_cell)
+
             change_vector = add_hex_vectors(change_vector, repulsive_vector)
             change_vector_len = min(hex_vector_len(change_vector), self.get_acceleration())
             change_vector = normalize_hex_vector(change_vector, change_vector_len)
+
+            drone_bottom_height = self.altitude + self.package.height if self.package else 0
+            if drone_bottom_height - self.min_height < self.height_correct_margin:
+                weight = 1 - max(drone_bottom_height - self.min_height, 0) / self.height_correct_margin
+                drone_height_vector += weight * self.max_ascent_speed[0] * 2        # add more weight to the ascent
+            
+            drone_top_height = self.altitude + self.height
+            if self.max_height - drone_top_height < self.height_correct_margin:
+                weight = 1 - max(self.max_height - drone_top_height, 0) / self.height_correct_margin
+                drone_height_vector -= weight * self.max_descent_speed[0]
+            drone_height_vector = np.clip(drone_height_vector, -self.max_descent_speed[0], self.max_ascent_speed[0])
+            drone_height_vector += random.uniform(-0.2, 0.2)    # add some randomness to the height vector
         
         new_speed = min(hex_vector_len(add_hex_vectors(self.cur_speed_vec, change_vector)), self.speed)
         self.cur_speed_vec = normalize_hex_vector(add_hex_vectors(self.cur_speed_vec, change_vector), new_speed)
@@ -175,7 +205,6 @@ class Drone(CellAgent):
             self.package = package
             package.cell = None
             package.pos = None
-
 
     def dropoff(self) -> None:
         if self.package:

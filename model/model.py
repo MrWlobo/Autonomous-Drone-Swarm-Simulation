@@ -18,6 +18,8 @@ class DroneStats:
             drone_acceleration,
             drone_max_ascent_speed,
             drone_max_descent_speed,
+            drone_max_height,
+            drone_min_height,
             drone_height,
             drone_battery,
             drain_rate
@@ -26,6 +28,8 @@ class DroneStats:
         self.drone_acceleration = drone_acceleration
         self.drone_max_ascent_speed = drone_max_ascent_speed,
         self.drone_max_descent_speed = drone_max_descent_speed,
+        self.drone_max_height = drone_max_height
+        self.drone_min_height = drone_min_height
         self.drone_height = drone_height
         self.drone_battery = drone_battery
         self.battery_drain_rate = drain_rate
@@ -47,6 +51,8 @@ class DroneModel(Model):
             drone_acceleration: int = 1,
             drone_max_ascent_speed: float = 5,
             drone_max_descent_speed: float = 3,
+            drone_max_height: float = 50,
+            drone_min_height: float = 20,
             drone_height: float = 0.5,
             drone_battery: int = 1,
             drain_rate: int = 0,
@@ -85,6 +91,8 @@ class DroneModel(Model):
             drone_acceleration=drone_acceleration,
             drone_max_ascent_speed=drone_max_ascent_speed,
             drone_max_descent_speed=drone_max_descent_speed,
+            drone_max_height=drone_max_height,
+            drone_min_height=drone_min_height,
             drone_height=drone_height,
             drone_battery=drone_battery,
             drain_rate=drain_rate
