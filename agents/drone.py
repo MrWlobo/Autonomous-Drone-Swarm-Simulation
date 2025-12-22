@@ -132,10 +132,11 @@ class Drone(CellAgent):
                      ):
         """ Move towards the target cell.
         args:
-            target_cell: the cell to move towards
-            end_speed: % of speed at the end [0 - 1]
-            repulsive_vectors: whether to add repulsive vectors to the movement
+            target_cell: (Cell) the cell to move towards
+            end_speed: (float) % of speed at the end [0 - 1]
+            repulsive_vectors: (bool) whether to add repulsive vectors to the movement
                                 this includes repulsion vectors from other drones and current cell's terrain
+            ground_repulsion: (bool) whether to add repulsion vectors from the ground
         """
         
         cur_speed = hex_vector_len(self.cur_speed_vec)
