@@ -16,7 +16,7 @@ model_params = {
     },
     "algorithm_name": {
         "type": "Select",
-        "value": 'dummy',
+        "value": 'hub_spawn',
         "values": ['dummy', 'hub_spawn'],
         "label": "Algorithm",
     },
@@ -68,10 +68,10 @@ model_params = {
     },
     "drone_acceleration": {
         "type": "SliderInt",
-        "value": 1,
+        "value": 4,
         "label": "Drone Acceleration",
-        "min": 1,
-        "max": 5,
+        "min": 2,
+        "max": 10,
         "step": 1,
     },
     "drone_battery": {
