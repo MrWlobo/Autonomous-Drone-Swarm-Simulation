@@ -18,8 +18,8 @@ class DroneStats:
             drone_acceleration,
             drone_max_ascent_speed,
             drone_max_descent_speed,
-            drone_max_height,
-            drone_min_height,
+            drone_max_altitude,
+            drone_min_altitude,
             drone_height,
             drone_battery,
             drain_rate
@@ -28,8 +28,8 @@ class DroneStats:
         self.drone_acceleration = drone_acceleration
         self.drone_max_ascent_speed = drone_max_ascent_speed,
         self.drone_max_descent_speed = drone_max_descent_speed,
-        self.drone_max_height = drone_max_height
-        self.drone_min_height = drone_min_height
+        self.drone_max_altitude = drone_max_altitude
+        self.drone_min_altitude = drone_min_altitude
         self.drone_height = drone_height
         self.drone_battery = drone_battery
         self.battery_drain_rate = drain_rate
@@ -51,8 +51,8 @@ class DroneModel(Model):
             drone_acceleration: int = 1,
             drone_max_ascent_speed: float = 5,
             drone_max_descent_speed: float = 3,
-            drone_max_height: float = 50,
-            drone_min_height: float = 20,
+            drone_max_altitude: float = 50,
+            drone_min_altitude: float = 20,
             drone_height: float = 0.5,
             drone_battery: int = 1,
             drain_rate: int = 0,
@@ -76,6 +76,11 @@ class DroneModel(Model):
             algorithm_name (str, optional): Name of drone cooperation algorithm to use, check out the algorithms module. Defaults to None.
             drone_speed (int, optional): Drone maximum speed (hex cells per tick). Defaults to 1.
             drone_acceleration (int, optional): Drone acceleration (hex cells per tick). Defaults to 1.
+            drone_max_ascent_speed (float, optional): Drone maximum ascent speed
+            drone_max_descent_speed (float, optional): Drone maximum descent speed
+            drone_max_altitude (float, optional): Drone maximum altitude above ground
+            drone_min_altitude (float, optional): Drone minimum altitude above ground
+            drone_height (float, optional): Drone height. Defaults to 0.5.
             drone_battery (int, optional): Drone battery capacity and initial value. Defaults to 1.
             drain_rate (int, optional): Drone battery drain rate (units per tick). Defaults to 0.
             simulator (ABMSimulator, optional): Simulato object to use to run the model. Defaults to None.
@@ -91,8 +96,8 @@ class DroneModel(Model):
             drone_acceleration=drone_acceleration,
             drone_max_ascent_speed=drone_max_ascent_speed,
             drone_max_descent_speed=drone_max_descent_speed,
-            drone_max_height=drone_max_height,
-            drone_min_height=drone_min_height,
+            drone_max_altitude=drone_max_altitude,
+            drone_min_altitude=drone_min_altitude,
             drone_height=drone_height,
             drone_battery=drone_battery,
             drain_rate=drain_rate
