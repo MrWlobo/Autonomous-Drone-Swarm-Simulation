@@ -8,12 +8,13 @@ class DropZone(CellAgent):
         
         if cell:
             cell.add_agent(self)
-            self.pos = cell.coordinate
-        else:
-            self.pos = None
 
-    def __eq__(self, other: CellAgent):
-        return self.unique_id == other.unique_id
+    def __eq__(self, other):
+        if other is None:
+            return False
+        if not isinstance(other, type(self)):
+            return False
+        return other is not None and self.unique_id == other.unique_id
     
     def __hash__(self):
         return hash(self.unique_id)
