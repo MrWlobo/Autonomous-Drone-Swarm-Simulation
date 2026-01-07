@@ -187,7 +187,7 @@ class DroneModel(Model):
 
     def get_drone_collisions(self, delete_drones=True) -> list[Cell]:
         collision_cells: list[Cell] = []
-        delete_drones: list[Drone] = []
+        delete_drones: set[Drone] = set()
         for drone in self.get_drones():
             if drone.cell is None:
                 continue
@@ -216,7 +216,8 @@ class DroneModel(Model):
                         print(x,y)
                         cell = self.grid[(x,y)]
                         collision_cells.append(cell)
-                        delete_drones.append(drone)
+                        delete_drones.add(drone)
+                        delete_drones.add(second_drone)
                         break
                     drone_last_pos = add_hex_vectors(drone_last_pos, drone_speed)
                     second_drone_last_pos = add_hex_vectors(second_drone_last_pos, second_drone_speed)

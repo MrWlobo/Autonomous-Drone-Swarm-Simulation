@@ -98,10 +98,17 @@ class Drone(CellAgent):
         
         self.move_to(target)
 
-    def get_repulsive_vector(self, drone_cell: Cell):
+    def max_speed_nearby(self, distance):
+        if distance <= 10:
+            return 1
+        else:
+            return distance // 5
+
+
+    def get_repulsive_vector(self, target_Cell: Cell):
         repulsive_vector = (0,0,0)
         drone_altitude_vector = 0
-        if drone_cell is None:
+        if self.cell is None:
             return repulsive_vector, drone_altitude_vector
         cur_speed = hex_vector_len(self.cur_speed_vec)
         # breaking_range (sum of arithmetic sequence)
@@ -109,16 +116,17 @@ class Drone(CellAgent):
         max_distance_h = 15
 
         breaking_range = (cur_speed + self.get_acceleration()) / 2 * math.ceil(cur_speed / self.get_acceleration())
-        breaking_range = round(breaking_range * 2)
+        breaking_range = round(breaking_range * 2.5)
+
         for other_drone in self.model.get_drones():
             if other_drone.cell is None or other_drone.unique_id == self.unique_id:
                 continue
-            drone_distance = hex_distance(drone_cell, other_drone.cell)
+            drone_distance = hex_distance(self.cell, other_drone.cell)
             drone_altitude_difference = self.altitude - other_drone.altitude
 
             if drone_distance <= breaking_range:
                 weight_v = max(1 - drone_distance/max_distance_v, 0)
-                repulsive_vector = add_hex_vectors(repulsive_vector, normalize_hex_vector(hex_vector(other_drone.cell, drone_cell), weight_v*self.get_acceleration()))
+                repulsive_vector = add_hex_vectors(repulsive_vector, normalize_hex_vector(hex_vector(other_drone.cell, self.cell), weight_v*self.get_acceleration()))
                 
             if drone_distance <= breaking_range:
                 if abs(drone_altitude_difference) < max_distance_h:
@@ -150,15 +158,26 @@ class Drone(CellAgent):
         end_speed = round(self.speed * end_speed_percentage)
         breaking_range = (cur_speed + end_speed)/2 * math.ceil((cur_speed - end_speed) / self.get_acceleration())
         end_speed = max(end_speed, 1)   # we need to make sure it is at least 1
-        near_target = hex_distance(self.cell, target_cell) <= round(breaking_range * 1.5 + cur_speed + 5)
+        near_target = hex_distance(self.cell, target_cell) <= round(breaking_range * 1.8 + cur_speed + 5)
+
+        max_speed = self.speed      # lower max speed if nearby to other drones/hubs
+        for other_drone in self.model.get_drones():
+            if other_drone.cell is None or other_drone.unique_id == self.unique_id:
+                continue
+            max_speed = min(max_speed, self.max_speed_nearby(hex_distance(self.cell, other_drone.cell)))
+        for hub in self.model.get_hubs():
+            if hub.cell is None:
+                continue
+            max_speed = min(max_speed, self.max_speed_nearby(hex_distance(self.cell, hub.cell)))
 
         if near_target == False:    # go faster (if possible) if we are far away
             new_speed = min(cur_speed + self.get_acceleration(), self.speed)    
             
         if near_target:             # slow down to end_speed if we are near target cell
             new_speed = max(cur_speed - self.get_acceleration(), end_speed)
-
+        new_speed = min(new_speed, max_speed)
         speed_change =  new_speed - cur_speed
+        change_vector = (0,0,0)
         if speed_change > 0:    # speed up towards target
             target_vector = normalize_hex_vector(hex_vector(self.cell, target_cell), cur_speed)
             correct_vector = sub_hex_vectors(target_vector, self.cur_speed_vec)
@@ -249,10 +268,12 @@ class Drone(CellAgent):
         return self.battery <= 0
 
     def destroy(self) -> None:
+        if self.hub is not None:
+            self.hub.incomming_drones.remove(self)
         if self.package is not None:
             self.model.failed_deliveries.append(self.package)   # Don't delete package, its stored as completed in model
         self.model.agents.remove(self)  
-        logging.warning(f"Drone destroyed at {self.cell.coordinate}")
+        logging.warning(f"Drone destroyed at {self.cell.coordinate}, id: {self.unique_id}, altitide: {self.altitude}")
 
     def ascent(self) -> None:
         self.altitude += self.max_ascent_speed

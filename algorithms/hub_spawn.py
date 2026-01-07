@@ -56,7 +56,7 @@ class HubSpawn(Strategy):
     
     def decide_for_hub(self, hub: Hub):
         # create requests
-        if hub.model.random.randint(1, 100) <= 4:
+        if hub.model.random.randint(1, 100) <= 3:
             return HubAction.CREATE_DELIVERY_REQUEST, None
         
         # deploy Drones
