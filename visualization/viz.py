@@ -14,6 +14,7 @@ from agents.drop_zone import DropZone
 from agents.hub import Hub
 from agents.obstacle import Obstacle
 from agents.package import Package
+from agents.collision import Collision
 from model.model import DroneModel
 
 
@@ -79,7 +80,8 @@ def VisualizationComponent(model: DroneModel) -> None:
     batches = {}
 
     for agent in model.agents:
-        if agent.pos is None: continue
+        if agent.cell is None:
+            continue
         
         style = agent_portrayal(agent)
         if style is None: 
@@ -90,7 +92,7 @@ def VisualizationComponent(model: DroneModel) -> None:
         if marker not in batches:
             batches[marker] = {"x": [], "y": [], "c": [], "s": [], "z": [], "a": []}
         
-        q, r = agent.pos
+        q, r = agent.cell.coordinate
         x_a, y_a = get_screen_coords(q, r) 
         
         batches[marker]["x"].append(x_a)
@@ -222,13 +224,14 @@ def agent_portrayal(agent: CellAgent) -> dict | None:
     Returns:
         dict | None: A dictionary of style parameters or None if the agent is invalid.
     """
-    if agent is None:
+    if agent is None or agent.cell is None:
+        print('abc')
         return None
     
     style = {"size": 50, "marker": "o", "zorder": 2, "alpha": 1.0}
     
     if isinstance(agent, Drone):
-        style.update({"color": "red", "size": 100, "zorder": 10})
+        style.update({"color": "red", "size": 100, "zorder": 10, "alpha": 0.6})
     elif isinstance(agent, Hub):
         style.update({"color": "cyan", "marker": "p", "size": 150, "zorder": 4})
     elif isinstance(agent, Obstacle):
@@ -237,6 +240,8 @@ def agent_portrayal(agent: CellAgent) -> dict | None:
         style.update({"color": "brown", "marker": "*", "size": 80, "zorder": 5})
     elif isinstance(agent, DropZone):
         style.update({"color": "green", "marker": "s", "size": 80, "zorder": 1, "alpha": 0.6})
+    elif isinstance(agent, Collision):
+        style.update({"color": "blue", "size": 80, "zorder": 2, "alpha": 0.6})
     else:
         style.update({"color": "gray", "size": 20, "alpha": 0})
     

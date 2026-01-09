@@ -1,8 +1,11 @@
 from mesa.experimental.devs import ABMSimulator
-from mesa.visualization import SolaraViz
+from mesa.visualization import SolaraViz, make_plot_component
 from model.model import DroneModel
 # don't remove the 'unused' Layout import, it is necessary for custom CSS to work 
 from visualization.viz import VisualizationComponent, Layout # pylint: disable=unused-import # noqa: F401 
+# Create plot component
+# Tworzysz komponent wykresu, wskazując na nazwę reportera z DataCollector
+multi_plot = make_plot_component(["Active Drones", "Collisions(%)"])
 
 
 model_params = {
@@ -22,8 +25,8 @@ model_params = {
     },
     "initial_state_setter_name": {
         "type": "Select",
-        "value": "random",
-        "values": ["random"],
+        "value": "hubs",
+        "values": ["random", "hubs"],
         "label": "Initial State",
     },
     "num_drones": {
@@ -52,7 +55,7 @@ model_params = {
     },
     "num_hubs": {
         "type": "SliderInt",
-        "value": 0,
+        "value": 1,
         "label": "Number of Hubs",
         "min": 0,
         "max": 10,
@@ -90,6 +93,11 @@ model_params = {
         "max": 5,
         "step": 1,
     },
+    "show_gridlines": {
+        "type": "Checkbox",
+        "value": False,
+        "label": "Show Gridlines",
+    },
 }
 
 simulator = ABMSimulator()
@@ -109,11 +117,14 @@ initial_model = DroneModel(
     drone_battery=model_params["drone_battery"]["value"],
     drain_rate=model_params["drain_rate"]["value"],
     simulator=simulator,
+    show_gridlines=model_params["show_gridlines"]["value"],
 )
 
 page = SolaraViz(
     model=initial_model,
-    components=[VisualizationComponent], 
+    components=[VisualizationComponent,
+                multi_plot,
+                ], 
     model_params=model_params,
     name="Autonomous Drone Swarm Simulation",
     simulator=simulator,

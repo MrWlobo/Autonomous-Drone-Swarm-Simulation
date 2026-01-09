@@ -1,15 +1,30 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import logging
 import math
 from pathlib import Path
 from mesa import Model
 from mesa.discrete_space import HexGrid
 from algorithms.helpers import get_algorithm_instance
+from algorithms.base import DroneAction
 from mesa.experimental.devs import ABMSimulator
 from mesa.space import PropertyLayer
+from mesa.datacollection import DataCollector
+from utils.distance import *
 
 from model.initial_state import RandomInitialStateSetter, get_initial_state_setter_instance
 from model.presets.base import Preset
 from model.presets.helpers import get_preset_instance
+from agents.collision import Collision
+from mesa.agent import AgentSet
+from agents.drone import Drone
+from agents.hub import Hub
+from agents.drop_zone import DropZone
+from agents.obstacle import Obstacle
+from agents.package import Package
+
+if TYPE_CHECKING:
+    pass
 
 class DroneStats:
     def __init__(
@@ -106,8 +121,10 @@ class DroneModel(Model):
         self.num_packages = num_packages
         self.num_hubs = num_hubs
         self.num_obstacles = num_obstacles
-        self.hubs = []
-        self.drones = []
+
+        self.completed_deliveries: list[Package] = []
+        self.failed_deliveries: list[Package] = []
+
         
         self.initial_state_setter = get_initial_state_setter_instance(initial_state_setter_name)
         if self.initial_state_setter is None:
@@ -138,6 +155,13 @@ class DroneModel(Model):
         self.grid.height_layer = PropertyLayer("height", self.width, self.height, default_value=0, dtype=int)
         
         self.initial_state_setter.set_initial_state(self)
+        
+        self.datacollector = DataCollector(
+            model_reporters={
+                "Active Drones": lambda m: len(m.get_drones()),
+                "Collisions(%)": lambda m: 0 # TODO
+            }
+        )
 
 
     def get_elevation(self, pos: tuple[int, int]) -> int:
@@ -161,6 +185,65 @@ class DroneModel(Model):
         """
         self.grid.height_layer.set_cell(pos, value)
 
+    def get_drone_collisions(self, delete_drones=True) -> list[Cell]:
+        collision_cells: list[Cell] = []
+        delete_drones: set[Drone] = set()
+        for drone in self.get_drones():
+            if drone.cell is None:
+                continue
+            for second_drone in self.get_drones():
+                if second_drone.cell is None or drone.unique_id == second_drone.unique_id or drone.last_action != DroneAction.MOVE_TO_CELL:
+                    continue
+                drone_last_pos = sub_hex_vectors(xy_to_qrs(drone.cell.coordinate), drone.cur_speed_vec)
+                if second_drone.last_action != DroneAction.MOVE_TO_CELL:
+                    num_check = hex_vector_len(drone.cur_speed_vec)
+                    if num_check == 0:
+                        continue
+                    second_drone_speed = (0,0,0)
+                    second_drone_last_pos = xy_to_qrs(second_drone.cell.coordinate)
+                else:
+                    num_check = max(hex_vector_len(drone.cur_speed_vec), hex_vector_len(second_drone.cur_speed_vec))
+                    if num_check == 0:
+                        continue
+                    second_drone_speed = divide_hex_vector(second_drone.cur_speed_vec, num_check)
+                    second_drone_last_pos = sub_hex_vectors(xy_to_qrs(second_drone.cell.coordinate), second_drone.cur_speed_vec)
+                
+                drone_speed = divide_hex_vector(drone.cur_speed_vec, num_check)
+
+                for _ in range(num_check + 1):
+                    if qrs_hex_distance(drone_last_pos, second_drone_last_pos) <= 2:
+                        x,y = qrs_to_xy(round_hex_vector(drone_last_pos))
+                        print(x,y)
+                        cell = self.grid[(x,y)]
+                        collision_cells.append(cell)
+                        delete_drones.add(drone)
+                        delete_drones.add(second_drone)
+                        break
+                    drone_last_pos = add_hex_vectors(drone_last_pos, drone_speed)
+                    second_drone_last_pos = add_hex_vectors(second_drone_last_pos, second_drone_speed)
+        if delete_drones:
+            for drone in delete_drones:
+                drone.destroy()
+        return collision_cells
+
+    def create_collisions(self, cells) -> None:   # Create agents to show collisions
+        for cell in cells:
+            c = Collision(self, cell=cell)
+    
+    def get_drop_zones(self) -> AgentSet:
+        return self.agents.select(agent_type=DropZone)
+    
+    def get_packages(self) -> AgentSet:
+        return self.agents.select(agent_type=Package)
+    
+    def get_drones(self) -> AgentSet:
+        return self.agents.select(agent_type=Drone)
+
+    def get_hubs(self) -> AgentSet:
+        return self.agents.select(agent_type=Hub)
+
+    def get_obstacles(self) -> AgentSet:
+        return self.agents.select(agent_type=Obstacle)
 
     def step(self):
         """Execute one simulation step."""
@@ -168,7 +251,10 @@ class DroneModel(Model):
             self.strategy.step()
 
         self.agents.shuffle_do("step")
-
+        collision_cells = self.get_drone_collisions(delete_drones=True)
+        self.create_collisions(collision_cells)
+        self.datacollector.collect(self)
+        
 
     def next_id(self):
         self.unique_id += 1

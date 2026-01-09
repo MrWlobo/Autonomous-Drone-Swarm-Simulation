@@ -21,7 +21,12 @@ def hex_distance(a: Cell, b: Cell):
 
     return round((np.abs(dq) + np.abs(dq + dr) + np.abs(dr)) / 2)
 
-def xy_to_qrs(col: int | tuple[int, int], row: int | None = None) -> tuple[int, int]:
+def qrs_hex_distance(qrs1: tuple[int, int, int], qrs2: tuple[int, int, int]) -> int:
+    q1, r1, s1 = qrs1
+    q2, r2, s2 = qrs2
+    return max(abs(q1-q2), abs(r1-r2), abs(s1-s2))
+
+def xy_to_qrs(col: int | tuple[int, int], row: int | None = None) -> tuple[int, int, int]:
     """ Converts Cartesian coordinates to cubic coordinates for hex grid calculations
     Accepts:
     1. xy_to_qrs(col, row)
@@ -34,11 +39,11 @@ def xy_to_qrs(col: int | tuple[int, int], row: int | None = None) -> tuple[int, 
     s = - q - r
     return (q, r, s)
 
-def qer_to_xy(q: int | tuple[int, int, int], r: int | None = None, s: int | None = None) -> tuple[int, int]:
+def qrs_to_xy(q: int | tuple[int, int, int], r: int | None = None, s: int | None = None) -> tuple[int, int]:
     """ Converts cubic coordinates to Cartesian coordinates for hex grid calculations
     Accepts:
-    1. qer_to_xy(q, r, s)
-    2. qer_to_xy((q, r, s))
+    1. qrs_to_xy(q, r, s)
+    2. qrs_to_xy((q, r, s))
     Returns: tuple[int, int]
     """
     q, r, s = q if isinstance(q, tuple) else (q, r, s)
@@ -98,3 +103,9 @@ def sub_hex_vectors(vector1: tuple[int, int, int], vector2: tuple[int, int, int]
 
 def reverse_hex_vector(vector: tuple[int, int, int]) -> tuple[int, int, int]:
     return (-vector[0], -vector[1], -vector[2])
+
+def divide_hex_vector(vector: tuple[int, int, int], divider) -> tuple[int, int, int]:
+    return (vector[0]/divider, vector[1]/divider, vector[2]/divider)
+
+def round_hex_vector(vector: tuple[float, float, float]) -> tuple[int, int, int]:
+    return (round(vector[0]), round(vector[1]), round(vector[2]))
