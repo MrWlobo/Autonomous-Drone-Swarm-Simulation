@@ -20,7 +20,7 @@ model_params = {
     "algorithm_name": {
         "type": "Select",
         "value": 'hub_spawn',
-        "values": ['dummy', 'hub_spawn'],
+        "values": ['dummy', 'hub_spawn', 'graph_based'],
         "label": "Algorithm",
     },
     "initial_state_setter_name": {

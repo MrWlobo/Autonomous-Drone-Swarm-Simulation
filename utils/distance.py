@@ -26,6 +26,19 @@ def qrs_hex_distance(qrs1: tuple[int, int, int], qrs2: tuple[int, int, int]) -> 
     q2, r2, s2 = qrs2
     return max(abs(q1-q2), abs(r1-r2), abs(s1-s2))
 
+def hex_neighbors_qrs(qrs: tuple[int, int, int]) -> list[tuple[int, int, int]]:
+    hex_directions = (
+        (1, -1, 0),
+        (1, 0, -1),
+        (0, 1, -1),
+        (-1, 1, 0),
+        (-1, 0, 1),
+        (0, -1, 1),
+    )
+
+    q, r, s = qrs
+    return [(q + dq, r + dr, s + ds) for dq, dr, ds in hex_directions]
+
 def xy_to_qrs(col: int | tuple[int, int], row: int | None = None) -> tuple[int, int, int]:
     """ Converts Cartesian coordinates to cubic coordinates for hex grid calculations
     Accepts:

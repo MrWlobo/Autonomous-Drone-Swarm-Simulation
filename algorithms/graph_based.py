@@ -1,11 +1,18 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from agents.drop_zone import DropZone
 from agents.package import Package
 from algorithms.base import Strategy, HubAction, DroneAction
 from mesa.discrete_space import Cell
 from agents.drone import Drone
 from agents.hub import Hub
-from model.model import DroneModel
+from agents.collision import Collision
+from utils.distance import *
+from utils.agent_utils import get_closest_available_hub
 
+if TYPE_CHECKING:
+    from model.model import DroneModel
 
 # IDEA
 # 1. Create a graph with vertices being the hubs and drop zones and
@@ -40,12 +47,14 @@ class GraphBased(Strategy):
 
     def __init__(self, model: DroneModel):
         super().__init__(model)
+        self.coord_map = None
         self.adjacency_matrix = None
 
     def register_drone(self, drone):
         pass
 
     def decide(self, agent):
+        self._create_adjacency_matrix()
         if isinstance(agent, Drone):
             return self.decide_for_drone(agent)
         elif isinstance(agent, Hub):
@@ -67,14 +76,35 @@ class GraphBased(Strategy):
             return DroneAction.WAIT, drone.cell
         return DroneAction.MOVE_TO_CELL, target_cell
 
-    def _create_adjacency_matrix(self):
-        pass
+    def _create_adjacency_matrix(self) -> None:
+        self._build_coord_map()
+
+        hub_count = len(self.model.get_hubs())
+        package_count = len(self.model.get_packages())
+        adj_mat = [[0 for _ in range(hub_count + package_count)] for _ in range(hub_count)]
+        self.adjacency_matrix = adj_mat
 
     def _astar(self):
         pass
 
-    def _neighbors(self):
-        pass
+    def _neighbors(self, cell: Cell) -> list[Cell]:
+        qrs = xy_to_qrs(cell.coordinate)
+        neighbors_qrs = hex_neighbors_qrs(qrs)
+
+        neighbors_xy = [qrs_to_xy(n) for n in neighbors_qrs]
+
+        # Filter to only existing grid cells
+        neighbors = []
+        for xy in neighbors_xy:
+            col, row = xy
+            # Manual bounds check instead of in_bounds
+            if 0 <= col < self.model.grid.width and 0 <= row < self.model.grid.height:
+                neighbors.append(self.coord_map[col, row])
+
+        return neighbors
 
     def _cost(self):
         pass
+
+    def _build_coord_map(self):
+        self.coord_map = {c.coordinate: c for c in self.model.grid.all_cells}
