@@ -234,8 +234,51 @@ class GraphBased(Strategy):
 
         return list(reversed(path))
 
-    def _cost(self):
-        pass
+    def _cost(self, path: list[Cell], hex_size: int = 2, safe_height: int = 10) -> int:
+        """
+        Calculate the traversal cost of a path considering distance and elevation.
+
+        The cost is computed as the sum of:
+        1. The horizontal distance, proportional to the number of cells in the path
+           multiplied by the size of each hex (`hex_size`).
+        2. The vertical ascent needed to reach the maximum elevation along the path
+           plus a safety margin (`safe_height`) from the start.
+        3. The vertical descent needed to descend from the maximum elevation to
+           the target cell plus the safety margin.
+
+        Parameters
+        ----------
+        path : list[Cell]
+            An ordered list of cells representing the path from start to target.
+        hex_size : int, optional
+            The horizontal distance cost per hex cell (default is 2).
+        safe_height : int, optional
+            The safety margin added to ascent and descent calculations (default is 10).
+
+        Returns
+        -------
+        int
+            The total cost of traversing the path considering distance and elevation.
+
+        Notes
+        -----
+        - Elevation values are obtained from `self.model.get_elevation(cell.coordinate)`.
+        - The method assumes the path contains at least one cell.
+        """
+
+        max_elevation = 0
+        for cell in path:
+            cell_elevation = self.model.get_elevation(cell.coordinate)
+            if cell_elevation > max_elevation:
+                max_elevation = cell_elevation
+
+        start_elevation = self.model.get_elevation(path[0].coordinate)
+        target_elevation = self.model.get_elevation(path[-1].coordinate)
+
+        ascent_height = max_elevation + safe_height - start_elevation
+        descent_height = max_elevation + safe_height - target_elevation
+
+        return len(path) * hex_size + ascent_height + descent_height
 
     def _build_coord_map(self) -> None:
         """
