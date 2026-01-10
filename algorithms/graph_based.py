@@ -4,6 +4,7 @@ import heapq
 from typing import TYPE_CHECKING, Optional, Callable
 
 from agents.drop_zone import DropZone
+from agents.obstacle import Obstacle
 from agents.package import Package
 from algorithms.base import Strategy, HubAction, DroneAction
 from mesa.discrete_space import Cell
@@ -86,19 +87,21 @@ class GraphBased(Strategy):
         adj_mat = [[0 for _ in range(hub_count + package_count)] for _ in range(hub_count)]
         self.adjacency_matrix = adj_mat
 
-    def _astar(self, start_cell: Cell, target_cell: Cell, heuristic: Callable):
+    def _astar(self, start_cell: Cell, target_cell: Cell, heuristic: Callable) -> Optional[list[Cell]]:
         start = AStarCell(start_cell, 0, heuristic(start_cell, target_cell),  None)
         open_pq = [(start.g_score + start.h_score, start)]
         heapq.heapify(open_pq)
         closed = {}
 
         while True:
+            if not open_pq:
+                return None
             f_score, current = heapq.heappop(open_pq)
             closed[current.cell.coordinate] = current
 
             if current.cell.coordinate == target_cell.coordinate:
                 print(self._build_path(current))
-                return
+                return self._build_path(current)
 
             for neighbor_cell in self._neighbors(current.cell):
                 if neighbor_cell.coordinate in closed:
@@ -113,13 +116,14 @@ class GraphBased(Strategy):
 
         neighbors_xy = [qrs_to_xy(n) for n in neighbors_qrs]
 
-        # Filter to only existing grid cells
         neighbors = []
         for xy in neighbors_xy:
             col, row = xy
-            # Manual bounds check instead of in_bounds
+            neighbor_cell = None
             if 0 <= col < self.model.grid.width and 0 <= row < self.model.grid.height:
-                neighbors.append(self.coord_map[col, row])
+                neighbor_cell = self.coord_map[col, row]
+            if neighbor_cell and all(not isinstance(agent, Obstacle) for agent in neighbor_cell.agents):
+                neighbors.append(neighbor_cell)
 
         return neighbors
 

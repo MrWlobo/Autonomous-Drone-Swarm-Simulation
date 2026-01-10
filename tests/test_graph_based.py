@@ -48,10 +48,10 @@ def GraphBasedInstance():
         },
         "num_obstacles": {
             "type": "SliderInt",
-            "value": 0,
+            "value": 500,
             "label": "Number of Obstacles",
             "min": 0,
-            "max": 50,
+            "max": 500,
             "step": 1,
         },
         "num_hubs": {
@@ -137,18 +137,12 @@ def test__neighbors_valid_coords(GraphBasedInstance):
     for neighbor in neighbors:
         assert abs(neighbor.coordinate[0] - coordinates[0]) <= 1
         assert abs(neighbor.coordinate[1] - coordinates[1]) <= 1
-
-@pytest.mark.parametrize("coordinates, expected", [
-    ((0, 0), False),
-    ((10, 0), False),
-    ((10, 7), True),
-    ((99, 5), False),
-    ((1, 7), True)
-])
-def test__neighbors_count(GraphBasedInstance, coordinates, expected):
-    GraphBasedInstance._create_adjacency_matrix()
-    assert (len(GraphBasedInstance._neighbors(Cell(coordinates, None))) == 6) == expected
+        assert neighbor.coordinate != coordinates
 
 def test__astar(GraphBasedInstance):
     GraphBasedInstance._create_adjacency_matrix()
-    GraphBasedInstance._astar(Cell((1, 2), None), Cell((1, 5), None), hex_distance)
+    for drone in GraphBasedInstance.model.get_drones():
+        for package in GraphBasedInstance.model.get_packages():
+            drone_cell = drone.cell
+            package_cell = package.cell
+            assert GraphBasedInstance._astar(drone_cell, package_cell, hex_distance) is not None
