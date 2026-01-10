@@ -4,6 +4,7 @@ from mesa.discrete_space import CellAgent, Cell
 import logging
 import random
 
+from agents.obstacle import Obstacle
 from agents.package import Package
 from algorithms.base import DroneAction
 from utils.distance import *
@@ -263,6 +264,14 @@ class Drone(CellAgent):
 
     def check_for_collision_with_terrain(self) -> bool:
         return self.altitude < self.model.get_elevation(self.cell.coordinate)
+
+    def check_for_collision_with_obstacle(self) -> bool:
+        result = False
+        for agent in self.cell.agents:
+            if isinstance(agent, Obstacle):
+                result = True
+                break
+        return result
 
     def check_for_lack_of_energy(self) -> bool:
         return self.battery <= 0

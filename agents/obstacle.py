@@ -9,4 +9,8 @@ class Obstacle(CellAgent):
     """An obstacle that drone's cannot fly over."""
     def __init__(self, model: DroneModel, cell: Cell = None):
         super().__init__(model)
+        self.cell = cell
+
+        if cell:
+            cell.add_agent(self)
         

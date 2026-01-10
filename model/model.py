@@ -221,6 +221,10 @@ class DroneModel(Model):
                         break
                     drone_last_pos = add_hex_vectors(drone_last_pos, drone_speed)
                     second_drone_last_pos = add_hex_vectors(second_drone_last_pos, second_drone_speed)
+
+            if drone.check_for_collision_with_terrain() or drone.check_for_collision_with_obstacle() or drone.check_for_lack_of_energy():
+                delete_drones.add(drone)
+
         if delete_drones:
             for drone in delete_drones:
                 drone.destroy()

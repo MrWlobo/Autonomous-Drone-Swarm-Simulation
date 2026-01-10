@@ -1,5 +1,7 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+
+import heapq
+from typing import TYPE_CHECKING, Optional, Callable
 
 from agents.drop_zone import DropZone
 from agents.package import Package
@@ -84,8 +86,26 @@ class GraphBased(Strategy):
         adj_mat = [[0 for _ in range(hub_count + package_count)] for _ in range(hub_count)]
         self.adjacency_matrix = adj_mat
 
-    def _astar(self):
-        pass
+    def _astar(self, start_cell: Cell, target_cell: Cell, heuristic: Callable):
+        start = AStarCell(start_cell, 0, heuristic(start_cell, target_cell),  None)
+        open_pq = [(start.g_score + start.h_score, start)]
+        heapq.heapify(open_pq)
+        closed = {}
+
+        while True:
+            f_score, current = heapq.heappop(open_pq)
+            closed[current.cell.coordinate] = current
+
+            if current.cell.coordinate == target_cell.coordinate:
+                print(self._build_path(current))
+                return
+
+            for neighbor_cell in self._neighbors(current.cell):
+                if neighbor_cell.coordinate in closed:
+                    continue
+
+                neighbor = AStarCell(neighbor_cell, current.g_score + 1, heuristic(neighbor_cell, target_cell), current)
+                heapq.heappush(open_pq, (neighbor.g_score + neighbor.h_score, neighbor))
 
     def _neighbors(self, cell: Cell) -> list[Cell]:
         qrs = xy_to_qrs(cell.coordinate)
@@ -103,8 +123,33 @@ class GraphBased(Strategy):
 
         return neighbors
 
+    def _build_path(self, target: AStarCell) -> list[Cell]:
+        current = target
+        path = []
+
+        while current.parent:
+            path.append(current.cell)
+            current = current.parent
+        path.append(current.cell)
+
+        return list(reversed(path))
+
     def _cost(self):
         pass
 
     def _build_coord_map(self):
         self.coord_map = {c.coordinate: c for c in self.model.grid.all_cells}
+
+class AStarCell:
+    def __init__(self, cell: Cell, g_score: int, h_score: int, parent: Optional["AStarCell"]):
+        self.cell = cell
+        self.g_score = g_score
+        self.h_score = h_score
+        self.parent = parent
+
+    @property
+    def f_score(self):
+        return self.g_score + self.h_score
+
+    def __lt__(self, other):
+        return self.f_score < other.f_score

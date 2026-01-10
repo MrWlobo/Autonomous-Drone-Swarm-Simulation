@@ -1,14 +1,13 @@
 import pytest
-from mesa.discrete_space import Cell
 from mesa.experimental.devs import ABMSimulator
 
-from algorithms.graph_based import GraphBased
+from agents.drone import Drone
+from model.initial_state import RandomInitialStateSetter
 from model.model import DroneModel
-from utils.distance import hex_distance
 
 
 @pytest.fixture
-def GraphBasedInstance():
+def ModelInstance():
     model_params = {
         "width": 100,
         "height": 100,
@@ -32,7 +31,7 @@ def GraphBasedInstance():
         },
         "num_drones": {
             "type": "SliderInt",
-            "value": 2,
+            "value": 50,
             "label": "Number of Drones",
             "min": 1,
             "max": 50,
@@ -48,10 +47,10 @@ def GraphBasedInstance():
         },
         "num_obstacles": {
             "type": "SliderInt",
-            "value": 0,
+            "value": 500,
             "label": "Number of Obstacles",
             "min": 0,
-            "max": 50,
+            "max": 500,
             "step": 1,
         },
         "num_hubs": {
@@ -121,34 +120,12 @@ def GraphBasedInstance():
     show_gridlines=model_params["show_gridlines"]["value"],
     )
 
-    graph_based = GraphBased(model)
+    init_st = RandomInitialStateSetter()
+    init_st.set_initial_state(model)
 
-    return graph_based
+    return model
 
-def test__create_adjacency_matrix_size(GraphBasedInstance):
-    GraphBasedInstance._create_adjacency_matrix()
-    assert len(GraphBasedInstance.adjacency_matrix) == len(GraphBasedInstance.model.get_hubs()), "Number of rows should be equal to the number of hubs."
-    assert len(GraphBasedInstance.adjacency_matrix[0]) == len(GraphBasedInstance.model.get_packages()) + len(GraphBasedInstance.model.get_hubs()), "Number of columns should be equal to the sum of the numbers of hubs and packages."
-
-def test__neighbors_valid_coords(GraphBasedInstance):
-    GraphBasedInstance._create_adjacency_matrix()
-    coordinates = (20, 61)
-    neighbors = GraphBasedInstance._neighbors(Cell(coordinates, None))
-    for neighbor in neighbors:
-        assert abs(neighbor.coordinate[0] - coordinates[0]) <= 1
-        assert abs(neighbor.coordinate[1] - coordinates[1]) <= 1
-
-@pytest.mark.parametrize("coordinates, expected", [
-    ((0, 0), False),
-    ((10, 0), False),
-    ((10, 7), True),
-    ((99, 5), False),
-    ((1, 7), True)
-])
-def test__neighbors_count(GraphBasedInstance, coordinates, expected):
-    GraphBasedInstance._create_adjacency_matrix()
-    assert (len(GraphBasedInstance._neighbors(Cell(coordinates, None))) == 6) == expected
-
-def test__astar(GraphBasedInstance):
-    GraphBasedInstance._create_adjacency_matrix()
-    GraphBasedInstance._astar(Cell((1, 2), None), Cell((1, 5), None), hex_distance)
+def test_check_for_collision_with_obstacle(ModelInstance):
+    for drone in ModelInstance.get_drones():
+        print(drone.cell.agents)
+        print(drone.check_for_collision_with_obstacle())

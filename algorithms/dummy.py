@@ -7,7 +7,7 @@ class Dummy(Strategy):
         pass
 
     def decide(self, drone: Drone):
-        if drone.check_for_lack_of_energy() or drone.check_for_collision_with_terrain():
+        if drone.check_for_lack_of_energy() or drone.check_for_collision_with_terrain() or drone.check_for_collision_with_obstacle():
             return DroneAction.DESTROY, None
 
         elif not drone.package and not drone.assigned_packages:
