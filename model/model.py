@@ -64,7 +64,14 @@ class DroneStats:
             drone_min_altitude,
             drone_height,
             drone_battery,
-            drain_rate
+            drain_rate,
+            drone_mass,
+            drone_rotor_area,
+            drone_rotor_count,
+            drone_front_area,
+            drone_max_travel_distance_empty,
+            drone_max_travel_distance_cargo,
+            drone_max_travel_distance_speed
     ):
         self.drone_speed = drone_speed
         self.drone_acceleration = drone_acceleration
@@ -75,6 +82,14 @@ class DroneStats:
         self.drone_height = drone_height
         self.drone_battery = drone_battery
         self.battery_drain_rate = drain_rate
+
+        drone_mass = drone_mass,
+        drone_rotor_area = drone_rotor_area,
+        drone_rotor_count = drone_rotor_count,
+        drone_front_area = drone_front_area,
+        drone_max_travel_distance_empty = drone_max_travel_distance_empty,
+        drone_max_travel_distance_cargo = drone_max_travel_distance_cargo,
+        drone_max_travel_distance_speed = drone_max_travel_distance_speed
 
 
 class DroneModel(Model):
@@ -102,6 +117,15 @@ class DroneModel(Model):
             background: Path = None,
             show_gridlines: bool = True,
             save_every: int = 10,
+
+            # Stats for battery drain rate calculations
+            drone_mass: float = 65, # kg
+            drone_rotor_area: float = 5.94, # m^2
+            drone_rotor_count: int = 8,
+            drone_front_area: float = 1.06, # m^2
+            drone_max_travel_distance_empty: int = 28000, # m
+            drone_max_travel_distance_cargo: int = 16000, # m
+            drone_max_travel_distance_speed: int = 15 # m/s, this value is the one used to determine the 2 variables above, do not confuse with drone_speed
     ):
         super().__init__()
         self.width = width
@@ -123,7 +147,16 @@ class DroneModel(Model):
             drone_min_altitude=drone_min_altitude,
             drone_height=drone_height,
             drone_battery=drone_battery,
-            drain_rate=drain_rate
+            drain_rate=drain_rate,
+
+            drone_mass=drone_mass,
+            drone_rotor_area=drone_rotor_area,
+            drone_rotor_count=drone_rotor_count,
+            drone_front_area=drone_front_area,
+            drone_max_travel_distance_empty=drone_max_travel_distance_empty,
+            drone_max_travel_distance_cargo=drone_max_travel_distance_cargo,
+            drone_max_travel_distance_speed=drone_max_travel_distance_speed
+
         )
         self.num_drones = num_drones
         self.num_packages = num_packages
