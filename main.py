@@ -3,9 +3,14 @@ from mesa.visualization import SolaraViz, make_plot_component
 from model.model import DroneModel
 # don't remove the 'unused' Layout import, it is necessary for custom CSS to work 
 from visualization.viz import VisualizationComponent, Layout # pylint: disable=unused-import # noqa: F401 
+
 # Create plot component
-# Tworzysz komponent wykresu, wskazując na nazwę reportera z DataCollector
-multi_plot = make_plot_component(["Active Drones", "Collisions(%)"])
+multi_plot = make_plot_component([
+    "Active Drones", 
+    "Collisions(%)", 
+    "Completed Deliveries", 
+    "Avg Delivery Time"
+])
 
 
 model_params = {
@@ -93,9 +98,17 @@ model_params = {
         "max": 5,
         "step": 1,
     },
+    "save_every": {
+        "type": "SliderInt",
+        "value": 0,
+        "label": "Save CSV Every X Steps",
+        "min": 0,
+        "max": 100,
+        "step": 5,
+    },
     "show_gridlines": {
         "type": "Checkbox",
-        "value": False,
+        "value": True,
         "label": "Show Gridlines",
     },
 }
@@ -118,6 +131,7 @@ initial_model = DroneModel(
     drain_rate=model_params["drain_rate"]["value"],
     simulator=simulator,
     show_gridlines=model_params["show_gridlines"]["value"],
+    save_every=model_params["save_every"]["value"],
 )
 
 page = SolaraViz(
