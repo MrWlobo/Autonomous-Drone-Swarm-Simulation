@@ -100,7 +100,7 @@ model_params = {
     },
     "save_every": {
         "type": "SliderInt",
-        "value": 10,
+        "value": 0,
         "label": "Save CSV Every X Steps",
         "min": 0,
         "max": 100,
