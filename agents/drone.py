@@ -44,10 +44,20 @@ class Drone(CellAgent):
             self.assigned_packages = []
         else:
             self.assigned_packages = assigned_packages
+            # Timestamp packages assigned at initialization
+            for pkg in self.assigned_packages:
+                if pkg.assigned_time is None:
+                    pkg.assigned_time = model.steps
             
         self.hub = hub
         self.grid = model.grid
         self.model: DroneModel = model
+
+    def add_package(self, package: Package) -> None:
+        """Assigns a package to the drone and records the assignment time."""
+        if package not in self.assigned_packages:
+            self.assigned_packages.append(package)
+            package.assigned_time = self.model.steps
 
     def step(self) -> None:
         output = self.model.strategy.decide(self)
@@ -243,6 +253,9 @@ class Drone(CellAgent):
         if package and package in self.assigned_packages:
             self.package = package
             package.cell = None
+            # Fallback: if assigned_time wasn't set earlier, set it now to avoid errors
+            if package.assigned_time is None:
+                package.assigned_time = self.model.steps
 
     def dropoff(self) -> None:
         if self.package is None:

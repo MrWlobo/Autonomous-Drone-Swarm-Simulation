@@ -16,6 +16,10 @@ class Package(CellAgent):
         self.drop_zone = drop_zone
         self.model: DroneModel = model
         
+        # --- Metrics: Track timestamps ---
+        self.assigned_time: int | None = None
+        self.delivery_time: int | None = None
+        
         if cell:
             cell.add_agent(self)
 
@@ -30,7 +34,8 @@ class Package(CellAgent):
         return hash(self.unique_id)
     
     def deliver(self):
+        # Record completion time
+        self.delivery_time = self.model.steps
+        
         self.model.agents.remove(self.drop_zone)
         self.model.completed_deliveries.append(self)
-    
-    

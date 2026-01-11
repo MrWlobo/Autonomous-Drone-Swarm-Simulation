@@ -26,6 +26,15 @@ class Dummy(Strategy):
     3. If idle -> Move to the nearest Hub -> Wait to be collected.
     """
 
+    def __init__(self, model: DroneModel) -> None:
+        self.model = model
+        
+        packages = model.get_packages()
+        drones = model.get_drones()
+        for i, package in enumerate(packages):
+            drone_index = i % len(drones)
+            drones[drone_index].add_package(package)
+
     def register_drone(self, drone: Drone):
         """No specific initialization needed for dummy strategy."""
         pass
