@@ -81,11 +81,6 @@ class Chongqing38774InitialStateSetter(InitialStateSetter):
             d = Drone(model, cell=cell)
             
             drones.append(d)
-
-        for i, package in enumerate(packages):
-            drone_index = i % len(drones)
-            drones[drone_index].assigned_packages.append(package)
-            
         
         hubs = []
         for _ in range(model.num_hubs):

@@ -2,6 +2,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import logging
 import math
+import os
+from datetime import datetime
 from pathlib import Path
 from mesa import Model
 from mesa.discrete_space import HexGrid
@@ -23,8 +25,33 @@ from agents.drop_zone import DropZone
 from agents.obstacle import Obstacle
 from agents.package import Package
 
-if TYPE_CHECKING:
-    pass
+
+def compute_avg_delivery_time(model: DroneModel):
+    """Calculates the average ticks it took to deliver packages (Assignment -> Delivery)."""
+    if not model.completed_deliveries:
+        return 0
+    
+    total_duration = 0
+    valid_packages = 0
+    for package in model.completed_deliveries:
+        if package.delivery_time is not None and package.assigned_time is not None:
+            total_duration += (package.delivery_time - package.assigned_time)
+            valid_packages += 1
+            
+    if valid_packages == 0:
+        return 0
+    return total_duration / valid_packages
+
+def compute_collision_percentage(model: DroneModel):
+    """Calculates the cumulative percentage of drones that have collided."""
+    active = len(model.get_drones())
+    total_history = active + model.total_dead_drones
+    
+    if total_history == 0:
+        return 0
+    
+    return (model.total_collisions / total_history) * 100
+
 
 class DroneStats:
     def __init__(
@@ -74,37 +101,18 @@ class DroneModel(Model):
             simulator: ABMSimulator = None,
             background: Path = None,
             show_gridlines: bool = True,
+            save_every: int = 10,
     ):
-        """_summary_
-
-        Args:
-            preset_name (str, optional): Preset to use. If a preset is selected, all model paramters are overwritten by it.
-                                        Used to load predefined city delivery scenarios, see model.presets. Defaults to None.
-            width (int, optional): Grid width (number of hex cells). Defaults to 50.
-            height (int, optional): Grid height (number of hex cells). Defaults to 50.
-            num_drones (int, optional): Number of drones. Defaults to 2.
-            num_packages (int, optional): Number of packages. Defaults to 4.
-            num_hubs (int, optional): Number of hubs. Defaults to 5.
-            num_obstacles (int, optional): Number of obstacles. Defaults to 0.
-            initial_state_setter_name (str, optional): Name of an object that defines how the grid and agents should be initialized,
-                                                                    see model.initial_state. Defaults to None.
-            algorithm_name (str, optional): Name of drone cooperation algorithm to use, check out the algorithms module. Defaults to None.
-            drone_speed (int, optional): Drone maximum speed (hex cells per tick). Defaults to 1.
-            drone_acceleration (int, optional): Drone acceleration (hex cells per tick). Defaults to 1.
-            drone_max_ascent_speed (float, optional): Drone maximum ascent speed
-            drone_max_descent_speed (float, optional): Drone maximum descent speed
-            drone_max_altitude (float, optional): Drone maximum altitude above ground
-            drone_min_altitude (float, optional): Drone minimum altitude above ground
-            drone_height (float, optional): Drone height. Defaults to 0.5.
-            drone_battery (int, optional): Drone battery capacity and initial value. Defaults to 1.
-            drain_rate (int, optional): Drone battery drain rate (units per tick). Defaults to 0.
-            simulator (ABMSimulator, optional): Simulato object to use to run the model. Defaults to None.
-            background (Path, optional): Background image path. Defaults to None.
-            show_gridlines (bool, optional): Whether grid lines should be rendered, useful to improve performance. Defaults to True.
-        """
         super().__init__()
         self.width = width
         self.height = height
+        self.save_every = save_every
+        
+        self.total_collisions = 0 
+        self.total_dead_drones = 0
+        
+        self.output_dir = None
+        self.output_file = None
         
         self.drone_stats: DroneStats = DroneStats(
             drone_speed=drone_speed,
@@ -124,7 +132,6 @@ class DroneModel(Model):
 
         self.completed_deliveries: list[Package] = []
         self.failed_deliveries: list[Package] = []
-
         
         self.initial_state_setter = get_initial_state_setter_instance(initial_state_setter_name)
         if self.initial_state_setter is None:
@@ -140,7 +147,6 @@ class DroneModel(Model):
         self.background = background
         self.show_gridlines = show_gridlines
 
-        # if a preset is provided, all settings (that the preset defines) are over overwritten according to it
         if preset_name is not None:
             preset_obj = get_preset_instance(preset_name)
             
@@ -151,7 +157,6 @@ class DroneModel(Model):
         
         self.grid = HexGrid((self.width, self.height), torus=False, capacity=math.inf, random=self.random)
         
-        # height to be interpeted as height above sea level
         self.grid.height_layer = PropertyLayer("height", self.width, self.height, default_value=0, dtype=int)
         
         self.initial_state_setter.set_initial_state(self)
@@ -159,42 +164,36 @@ class DroneModel(Model):
         self.datacollector = DataCollector(
             model_reporters={
                 "Active Drones": lambda m: len(m.get_drones()),
-                "Collisions(%)": lambda m: 0 # TODO
+                "Collisions(%)": compute_collision_percentage,
+                "Completed Deliveries": lambda m: len(m.completed_deliveries),
+                "Avg Delivery Time": compute_avg_delivery_time
             }
         )
 
 
     def get_elevation(self, pos: tuple[int, int]) -> int:
-        """Get the elevation at give coords (as returned by cell.coordinate).
-
-        Args:
-            pos (tuple[int, int]): Coords of cell (as returned by cell.coordinate) to get the height of.
-
-        Returns:
-            int: Elevation at give coordinates.
-        """
         return self.grid.height_layer.data[pos]
 
-
     def set_elevation(self, pos: tuple[int, int], value: int) -> None:
-        """Set the elevation at give coords (as returned by cell.coordinate).
-
-        Args:
-            pos (tuple[int, int]): Coords of cell (as returned by cell.coordinate).
-            value (int): The desired height.
-        """
         self.grid.height_layer.set_cell(pos, value)
 
     def get_drone_collisions(self, delete_drones=True) -> list[Cell]:
         collision_cells: list[Cell] = []
-        delete_drones: set[Drone] = set()
+        
+        delete_drones_set: set[Drone] = set()
+        collided_drones_set: set[Drone] = set()
+
         for drone in self.get_drones():
             if drone.cell is None:
                 continue
+                
+            # check for drone-to-drone collisions
             for second_drone in self.get_drones():
                 if second_drone.cell is None or drone.unique_id == second_drone.unique_id or drone.last_action != DroneAction.MOVE_TO_CELL:
                     continue
+                
                 drone_last_pos = sub_hex_vectors(xy_to_qrs(drone.cell.coordinate), drone.cur_speed_vec)
+                
                 if second_drone.last_action != DroneAction.MOVE_TO_CELL:
                     num_check = hex_vector_len(drone.cur_speed_vec)
                     if num_check == 0:
@@ -213,24 +212,40 @@ class DroneModel(Model):
                 for _ in range(num_check + 1):
                     if qrs_hex_distance(drone_last_pos, second_drone_last_pos) <= 2:
                         x,y = qrs_to_xy(round_hex_vector(drone_last_pos))
-                        print(x,y)
+                        # print(x,y)
                         cell = self.grid[(x,y)]
                         collision_cells.append(cell)
-                        delete_drones.add(drone)
-                        delete_drones.add(second_drone)
+                        
+                        # mark as collision
+                        delete_drones_set.add(drone)
+                        delete_drones_set.add(second_drone)
+                        collided_drones_set.add(drone)
+                        collided_drones_set.add(second_drone)
                         break
+                        
                     drone_last_pos = add_hex_vectors(drone_last_pos, drone_speed)
                     second_drone_last_pos = add_hex_vectors(second_drone_last_pos, second_drone_speed)
 
-            if drone.check_for_collision_with_terrain() or drone.check_for_collision_with_obstacle() or drone.check_for_lack_of_energy():
-                delete_drones.add(drone)
+            # check for terrain collisions
+            if drone.check_for_collision_with_terrain() or drone.check_for_collision_with_obstacle():
+                delete_drones_set.add(drone)
+                collided_drones_set.add(drone)
+            
+            # check for battery depletion
+            elif drone.check_for_lack_of_energy():
+                delete_drones_set.add(drone)
+
+        # Update Model Stats
+        self.total_collisions += len(collided_drones_set)
+        self.total_dead_drones += len(delete_drones_set)
 
         if delete_drones:
-            for drone in delete_drones:
+            for drone in delete_drones_set:
                 drone.destroy()
+        
         return collision_cells
 
-    def create_collisions(self, cells) -> None:   # Create agents to show collisions
+    def create_collisions(self, cells) -> None:
         for cell in cells:
             c = Collision(self, cell=cell)
     
@@ -251,6 +266,17 @@ class DroneModel(Model):
 
     def step(self):
         """Execute one simulation step."""
+        
+        if self.save_every > 0 and self.output_dir is None:
+            if self.save_every > 0:
+                timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
+                self.output_dir = Path(__file__).parent.parent / "experiments" / f"run_{timestamp}"
+                os.makedirs(self.output_dir, exist_ok=True)
+                self.output_file = self.output_dir / "model_data.csv"
+                logging.info(f"Saving data to {self.output_file} every {self.save_every} steps.")
+            else:
+                self.output_dir = None
+        
         if hasattr(self.strategy, "step"):
             self.strategy.step()
 
@@ -259,6 +285,10 @@ class DroneModel(Model):
         self.create_collisions(collision_cells)
         self.datacollector.collect(self)
         
+        # Save data to CSV
+        if self.output_dir and self.steps > 0 and self.steps % self.save_every == 0:
+            df = self.datacollector.get_model_vars_dataframe()
+            df.to_csv(self.output_file)
 
     def next_id(self):
         self.unique_id += 1
