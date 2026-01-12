@@ -11,8 +11,8 @@ class Package(CellAgent):
     def __init__(self, model: DroneModel, cell: Cell = None, height: float = 0.0, weight: float = 0.0, drop_zone: DropZone = None):
         super().__init__(model)
         self.cell = cell
-        self.height = height
-        self.weight = weight
+        self.height = height # m
+        self.weight = weight # kg
         self.drop_zone = drop_zone
         self.model: DroneModel = model
         

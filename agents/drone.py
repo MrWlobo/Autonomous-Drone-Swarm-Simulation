@@ -4,7 +4,8 @@ from mesa.discrete_space import CellAgent, Cell
 import logging
 import random
 
-from agents.obstacle import Obstacle
+from mesa.examples.basic.boid_flockers.app import model
+
 from agents.package import Package
 from algorithms.base import DroneAction
 from utils.distance import *
@@ -29,8 +30,8 @@ class Drone(CellAgent):
         self.altitude_correct_margin = 5      # start pushing the drone down if it's too close to min/max height
         self.current_ascent_speed = 0
         self.height = model.drone_stats.drone_height
+        self.max_battery = model.drone_stats.drone_battery
         self.battery = model.drone_stats.drone_battery
-        self.battery_drain_rate = model.drone_stats.battery_drain_rate
         
         self.strategy = model.strategy
         self.package = None
@@ -52,6 +53,16 @@ class Drone(CellAgent):
         self.hub = hub
         self.grid = model.grid
         self.model: DroneModel = model
+
+        # Constants used to calculate battery drain rate
+        self.g = 9.81
+        self.air_resistance = 1.225
+        self.b = 0.5 * self.air_resistance * self.model.drone_stats.drone_drag_factor * self.model.drone_stats.drone_front_area
+
+        test_distance = self.model.drone_stats.drone_max_travel_distance_empty
+        test_mass = self.model.drone_stats.drone_mass
+        test_speed = self.model.drone_stats.drone_max_travel_distance_speed
+        self.a = ((self.max_battery * test_speed) / test_distance - self.b * test_speed ** 3) / test_mass ** 1.5
 
     def add_package(self, package: Package) -> None:
         """Assigns a package to the drone and records the assignment time."""
@@ -78,13 +89,13 @@ class Drone(CellAgent):
             self.destroy()
 
         elif action == DroneAction.ASCENT:
-            self.ascent()
+            pass
 
         elif action == DroneAction.DESCENT:
-            self.descent(target)
+            pass
 
         if action != DroneAction.REST:
-            self.battery -= self.battery_drain_rate
+            pass
 
     def __eq__(self, other):
         if other is None:
@@ -144,10 +155,10 @@ class Drone(CellAgent):
                     weight_h = 1 - abs(drone_altitude_difference)/max_distance_h
                     if drone_altitude_difference >= 0:
                         altitude_vector = weight_h * self.get_acceleration()
-                        drone_altitude_vector = min(altitude_vector, self.max_ascent_speed[0])
+                        drone_altitude_vector = min(altitude_vector, self.max_ascent_speed)
                     else:
                         altitude_vector = weight_h * self.get_acceleration()
-                        drone_altitude_vector = - min(altitude_vector, self.max_descent_speed[0])
+                        drone_altitude_vector = - min(altitude_vector, self.max_descent_speed)
 
         return repulsive_vector, drone_altitude_vector
 
@@ -227,15 +238,15 @@ class Drone(CellAgent):
             min_altitude = self.min_altitude + self.model.get_elevation(self.cell.coordinate)
             if drone_bottom_altitude - min_altitude < self.altitude_correct_margin:
                 weight = 1 - max(drone_bottom_altitude - min_altitude, 0) / self.altitude_correct_margin
-                drone_altitude_vector += weight * self.max_ascent_speed[0] * 2        # add more weight to the ascent
+                drone_altitude_vector += weight * self.max_ascent_speed * 2        # add more weight to the ascent
             
             drone_top_altitude = self.altitude + self.height
             max_altitude = self.max_altitude + self.model.get_elevation(self.cell.coordinate)
             if max_altitude - drone_top_altitude < self.altitude_correct_margin:
                 weight = 1 - max(max_altitude - drone_top_altitude, 0) / self.altitude_correct_margin
-                drone_altitude_vector -= weight * self.max_descent_speed[0]
+                drone_altitude_vector -= weight * self.max_descent_speed
 
-        drone_altitude_vector = np.clip(drone_altitude_vector, -self.max_descent_speed[0], self.max_ascent_speed[0])
+        drone_altitude_vector = np.clip(drone_altitude_vector, -self.max_descent_speed, self.max_ascent_speed)
         drone_altitude_vector += random.uniform(-0.2, 0.2)    # add some randomness to the height vector
 
         self.altitude += drone_altitude_vector
@@ -278,14 +289,6 @@ class Drone(CellAgent):
     def check_for_collision_with_terrain(self) -> bool:
         return self.altitude < self.model.get_elevation(self.cell.coordinate)
 
-    def check_for_collision_with_obstacle(self) -> bool:
-        result = False
-        for agent in self.cell.agents:
-            if isinstance(agent, Obstacle):
-                result = True
-                break
-        return result
-
     def check_for_lack_of_energy(self) -> bool:
         return self.battery <= 0
 
@@ -296,15 +299,6 @@ class Drone(CellAgent):
             self.model.failed_deliveries.append(self.package)   # Don't delete package, its stored as completed in model
         self.model.agents.remove(self)  
         logging.warning(f"Drone destroyed at {self.cell.coordinate}, id: {self.unique_id}, altitide: {self.altitude}")
-
-    def ascent(self) -> None:
-        self.altitude += self.max_ascent_speed
-
-    def descent(self, elevation) -> None:
-        new_altitude = self.altitude - self.max_descent_speed
-        if new_altitude < elevation:
-            new_altitude = elevation
-        self.altitude = new_altitude
 
     def change_altitude(self, altitude) -> None:
         """
@@ -317,3 +311,15 @@ class Drone(CellAgent):
         else:
             altitude_change = max(altitude_change, -self.max_descent_speed)
         self.altitude = altitude + altitude_change
+
+    def calculate_energy_drain(self, horizontal_speed, altitude_change, hex_distance: int, hex_size: int =2 ):
+        mass = self.model.drone_stats.drone_mass
+        if self.package:
+            mass += self.package.weight
+        distance = hex_distance * hex_size
+
+        E_horizontal = ((self.a * mass ** 1.5) / horizontal_speed + self.b * horizontal_speed ** 2) * distance
+        E_ascent = (mass * self.g * max(0, altitude_change)) / self.model.drone_stats.drone_climb_efficiency
+        E_descent = mass * self.g * max(0, -altitude_change) * self.model.drone_stats.drone_descent_factor
+
+        return E_horizontal + E_ascent + E_descent

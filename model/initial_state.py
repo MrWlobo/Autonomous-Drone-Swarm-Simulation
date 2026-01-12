@@ -7,7 +7,6 @@ from agents.drone import Drone
 from agents.drop_zone import DropZone
 from agents.package import Package
 from agents.hub import Hub
-from agents.obstacle import Obstacle
 
 if TYPE_CHECKING:
     from model.model import DroneModel
@@ -93,12 +92,6 @@ class RandomInitialStateSetter(InitialStateSetter):
             cell = available_cells.pop()
             h = Hub(model, cell=cell)
             hubs.append(h)
-        
-        obstacles = []
-        for _ in range(model.num_obstacles):
-            cell = available_cells.pop()
-            o = Obstacle(model, cell=cell)
-            obstacles.append(o)
 
 class HubsInitialStateSetter(InitialStateSetter):
     def set_initial_state(self, model: DroneModel) -> None:
@@ -156,12 +149,6 @@ class HubsInitialStateSetter(InitialStateSetter):
             cell = available_cells.pop()
             h = Hub(model, cell=cell)
             hubs.append(h)
-        
-        obstacles = []
-        for _ in range(model.num_obstacles):
-            cell = available_cells.pop()
-            o = Obstacle(model, cell=cell)
-            obstacles.append(o)
 
 def get_initial_state_setter_instance(name: str) -> InitialStateSetter:
     """Returns an InitialStateSetter subclass instance from a string representing its name.

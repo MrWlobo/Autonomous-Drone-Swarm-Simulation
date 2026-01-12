@@ -6,7 +6,6 @@ import numpy as np
 from agents.drone import Drone
 from agents.drop_zone import DropZone
 from agents.hub import Hub
-from agents.obstacle import Obstacle
 from agents.package import Package
 from model.initial_state import InitialStateSetter
 from model.presets.utils import get_delivery_locations, load_elevation_grid
@@ -89,10 +88,3 @@ class Hangzhou35806InitialStateSetter(InitialStateSetter):
             h = Hub(model, cell=cell)
             
             hubs.append(h)
-        
-        obstacles = []
-        for _ in range(model.num_obstacles):
-            cell = available_cells.pop()
-            o = Obstacle(model, cell=cell)
-            
-            obstacles.append(o)

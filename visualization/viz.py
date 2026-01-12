@@ -12,7 +12,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from agents.drone import Drone
 from agents.drop_zone import DropZone
 from agents.hub import Hub
-from agents.obstacle import Obstacle
 from agents.package import Package
 from agents.collision import Collision
 from model.model import DroneModel
@@ -234,8 +233,6 @@ def agent_portrayal(agent: CellAgent) -> dict | None:
         style.update({"color": "red", "size": 100, "zorder": 10, "alpha": 0.6})
     elif isinstance(agent, Hub):
         style.update({"color": "cyan", "marker": "p", "size": 150, "zorder": 4})
-    elif isinstance(agent, Obstacle):
-        style.update({"color": "black", "marker": "s", "size": 100})
     elif isinstance(agent, Package):
         style.update({"color": "brown", "marker": "*", "size": 80, "zorder": 5})
     elif isinstance(agent, DropZone):
