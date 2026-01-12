@@ -4,6 +4,8 @@ from mesa.discrete_space import CellAgent, Cell
 import logging
 import random
 
+from mesa.examples.basic.boid_flockers.app import model
+
 from agents.obstacle import Obstacle
 from agents.package import Package
 from algorithms.base import DroneAction
@@ -317,3 +319,25 @@ class Drone(CellAgent):
         else:
             altitude_change = max(altitude_change, -self.max_descent_speed)
         self.altitude = altitude + altitude_change
+
+    def calculate_energy_drain(self, horizontal_speed, altitude_change, hex_distance: int, hex_size: int =2 ):
+        mass = self.model.drone_stats.drone_mass
+        if self.package:
+            mass += self.package.weight
+        distance = hex_distance * hex_size
+        battery = self.model.drone_stats.drone_battery
+        g = 9.81
+        air_resistance = 1.225
+
+        b = 0.5 * air_resistance * self.model.drone_stats.drone_drag_factor * self.model.drone_stats.drone_front_area
+
+        test_distance = self.model.drone_stats.drone_max_travel_distance_empty
+        test_mass = self.model.drone_stats.drone_mass
+        test_speed = self.model.drone_stats.drone_max_travel_distance_speed
+        a = ((battery * test_speed) / test_distance - b * test_speed ** 3) / test_mass ** 1.5
+
+        E_horizontal = ((a * mass ** 1.5) / horizontal_speed + b * horizontal_speed ** 2) * distance
+        E_ascent = (mass * g * max(0, altitude_change)) / self.model.drone_stats.drone_climb_efficiency
+        E_descent = mass * g * max(0, -altitude_change) * self.model.drone_stats.drone_descent_factor
+
+        return E_horizontal + E_ascent + E_descent

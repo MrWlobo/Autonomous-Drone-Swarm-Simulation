@@ -69,6 +69,9 @@ class DroneStats:
             drone_rotor_area,
             drone_rotor_count,
             drone_front_area,
+            drone_drag_factor,
+            drone_climb_efficiency,
+            drone_descent_factor,
             drone_max_travel_distance_empty,
             drone_max_travel_distance_cargo,
             drone_max_travel_distance_speed
@@ -83,13 +86,16 @@ class DroneStats:
         self.drone_battery = drone_battery
         self.battery_drain_rate = drain_rate
 
-        drone_mass = drone_mass,
-        drone_rotor_area = drone_rotor_area,
-        drone_rotor_count = drone_rotor_count,
-        drone_front_area = drone_front_area,
-        drone_max_travel_distance_empty = drone_max_travel_distance_empty,
-        drone_max_travel_distance_cargo = drone_max_travel_distance_cargo,
-        drone_max_travel_distance_speed = drone_max_travel_distance_speed
+        self.drone_mass = drone_mass,
+        self.drone_rotor_area = drone_rotor_area,
+        self.drone_rotor_count = drone_rotor_count,
+        self.drone_front_area = drone_front_area,
+        self.drone_drag_factor = drone_drag_factor
+        self.drone_climb_efficiency = drone_climb_efficiency,
+        self.drone_descent_factor = drone_descent_factor,
+        self.drone_max_travel_distance_empty = drone_max_travel_distance_empty,
+        self.drone_max_travel_distance_cargo = drone_max_travel_distance_cargo,
+        self.drone_max_travel_distance_speed = drone_max_travel_distance_speed
 
 
 class DroneModel(Model):
@@ -111,7 +117,6 @@ class DroneModel(Model):
             drone_max_altitude: float = 50,
             drone_min_altitude: float = 20,
             drone_height: float = 0.5,
-            drone_battery: int = 1,
             drain_rate: int = 0,
             simulator: ABMSimulator = None,
             background: Path = None,
@@ -123,9 +128,13 @@ class DroneModel(Model):
             drone_rotor_area: float = 5.94, # m^2
             drone_rotor_count: int = 8,
             drone_front_area: float = 1.06, # m^2
+            drone_drag_factor: float = 1.1,
+            drone_climb_efficiency: float = 0.8,
+            drone_descent_factor: float = 0.3,
             drone_max_travel_distance_empty: int = 28000, # m
             drone_max_travel_distance_cargo: int = 16000, # m
-            drone_max_travel_distance_speed: int = 15 # m/s, this value is the one used to determine the 2 variables above, do not confuse with drone_speed
+            drone_max_travel_distance_speed: int = 15, # m/s, this value is the one used to determine the 2 variables above, do not confuse with drone_speed
+            drone_battery: int = 14_300_000 # J
     ):
         super().__init__()
         self.width = width
@@ -153,6 +162,9 @@ class DroneModel(Model):
             drone_rotor_area=drone_rotor_area,
             drone_rotor_count=drone_rotor_count,
             drone_front_area=drone_front_area,
+            drone_drag_factor=drone_drag_factor,
+            drone_climb_efficiency=drone_climb_efficiency,
+            drone_descent_factor=drone_descent_factor,
             drone_max_travel_distance_empty=drone_max_travel_distance_empty,
             drone_max_travel_distance_cargo=drone_max_travel_distance_cargo,
             drone_max_travel_distance_speed=drone_max_travel_distance_speed
@@ -162,6 +174,15 @@ class DroneModel(Model):
         self.num_packages = num_packages
         self.num_hubs = num_hubs
         self.num_obstacles = num_obstacles
+
+        # self.drone_mass = drone_mass,
+        # self.drone_rotor_area = drone_rotor_area,
+        # self.drone_rotor_count = drone_rotor_count,
+        # self.drone_front_area = drone_front_area,
+        # self.drone_drag_factor = drone_drag_factor
+        # self.drone_max_travel_distance_empty = drone_max_travel_distance_empty,
+        # self.drone_max_travel_distance_cargo = drone_max_travel_distance_cargo,
+        # self.drone_max_travel_distance_speed = drone_max_travel_distance_speed
 
         self.completed_deliveries: list[Package] = []
         self.failed_deliveries: list[Package] = []
