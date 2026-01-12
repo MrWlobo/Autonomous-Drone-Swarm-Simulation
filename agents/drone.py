@@ -31,8 +31,8 @@ class Drone(CellAgent):
         self.altitude_correct_margin = 5      # start pushing the drone down if it's too close to min/max height
         self.current_ascent_speed = 0
         self.height = model.drone_stats.drone_height
+        self.max_battery = model.drone_stats.drone_battery
         self.battery = model.drone_stats.drone_battery
-        self.battery_drain_rate = model.drone_stats.battery_drain_rate
         
         self.strategy = model.strategy
         self.package = None
@@ -54,6 +54,16 @@ class Drone(CellAgent):
         self.hub = hub
         self.grid = model.grid
         self.model: DroneModel = model
+
+        # Constants used to calculate battery drain rate
+        self.g = 9.81
+        self.air_resistance = 1.225
+        self.b = 0.5 * self.air_resistance * self.model.drone_stats.drone_drag_factor * self.model.drone_stats.drone_front_area
+
+        test_distance = self.model.drone_stats.drone_max_travel_distance_empty
+        test_mass = self.model.drone_stats.drone_mass
+        test_speed = self.model.drone_stats.drone_max_travel_distance_speed
+        self.a = ((self.max_battery * test_speed) / test_distance - self.b * test_speed ** 3) / test_mass ** 1.5
 
     def add_package(self, package: Package) -> None:
         """Assigns a package to the drone and records the assignment time."""
@@ -325,19 +335,9 @@ class Drone(CellAgent):
         if self.package:
             mass += self.package.weight
         distance = hex_distance * hex_size
-        battery = self.model.drone_stats.drone_battery
-        g = 9.81
-        air_resistance = 1.225
 
-        b = 0.5 * air_resistance * self.model.drone_stats.drone_drag_factor * self.model.drone_stats.drone_front_area
-
-        test_distance = self.model.drone_stats.drone_max_travel_distance_empty
-        test_mass = self.model.drone_stats.drone_mass
-        test_speed = self.model.drone_stats.drone_max_travel_distance_speed
-        a = ((battery * test_speed) / test_distance - b * test_speed ** 3) / test_mass ** 1.5
-
-        E_horizontal = ((a * mass ** 1.5) / horizontal_speed + b * horizontal_speed ** 2) * distance
-        E_ascent = (mass * g * max(0, altitude_change)) / self.model.drone_stats.drone_climb_efficiency
-        E_descent = mass * g * max(0, -altitude_change) * self.model.drone_stats.drone_descent_factor
+        E_horizontal = ((self.a * mass ** 1.5) / horizontal_speed + self.b * horizontal_speed ** 2) * distance
+        E_ascent = (mass * self.g * max(0, altitude_change)) / self.model.drone_stats.drone_climb_efficiency
+        E_descent = mass * self.g * max(0, -altitude_change) * self.model.drone_stats.drone_descent_factor
 
         return E_horizontal + E_ascent + E_descent

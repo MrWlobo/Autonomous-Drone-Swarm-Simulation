@@ -64,7 +64,6 @@ class DroneStats:
             drone_min_altitude,
             drone_height,
             drone_battery,
-            drain_rate,
             drone_mass,
             drone_rotor_area,
             drone_rotor_count,
@@ -84,7 +83,6 @@ class DroneStats:
         self.drone_min_altitude = drone_min_altitude
         self.drone_height = drone_height
         self.drone_battery = drone_battery
-        self.battery_drain_rate = drain_rate
 
         self.drone_mass = drone_mass,
         self.drone_rotor_area = drone_rotor_area,
@@ -117,7 +115,6 @@ class DroneModel(Model):
             drone_max_altitude: float = 50,
             drone_min_altitude: float = 20,
             drone_height: float = 0.5,
-            drain_rate: int = 0,
             simulator: ABMSimulator = None,
             background: Path = None,
             show_gridlines: bool = True,
@@ -156,7 +153,6 @@ class DroneModel(Model):
             drone_min_altitude=drone_min_altitude,
             drone_height=drone_height,
             drone_battery=drone_battery,
-            drain_rate=drain_rate,
 
             drone_mass=drone_mass,
             drone_rotor_area=drone_rotor_area,
@@ -174,15 +170,6 @@ class DroneModel(Model):
         self.num_packages = num_packages
         self.num_hubs = num_hubs
         self.num_obstacles = num_obstacles
-
-        # self.drone_mass = drone_mass,
-        # self.drone_rotor_area = drone_rotor_area,
-        # self.drone_rotor_count = drone_rotor_count,
-        # self.drone_front_area = drone_front_area,
-        # self.drone_drag_factor = drone_drag_factor
-        # self.drone_max_travel_distance_empty = drone_max_travel_distance_empty,
-        # self.drone_max_travel_distance_cargo = drone_max_travel_distance_cargo,
-        # self.drone_max_travel_distance_speed = drone_max_travel_distance_speed
 
         self.completed_deliveries: list[Package] = []
         self.failed_deliveries: list[Package] = []
