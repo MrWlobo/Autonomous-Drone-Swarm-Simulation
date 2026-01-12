@@ -22,7 +22,6 @@ from mesa.agent import AgentSet
 from agents.drone import Drone
 from agents.hub import Hub
 from agents.drop_zone import DropZone
-from agents.obstacle import Obstacle
 from agents.package import Package
 
 
@@ -64,9 +63,8 @@ class DroneStats:
             drone_min_altitude,
             drone_height,
             drone_battery,
+
             drone_mass,
-            drone_rotor_area,
-            drone_rotor_count,
             drone_front_area,
             drone_drag_factor,
             drone_climb_efficiency,
@@ -77,22 +75,20 @@ class DroneStats:
     ):
         self.drone_speed = drone_speed
         self.drone_acceleration = drone_acceleration
-        self.drone_max_ascent_speed = drone_max_ascent_speed,
-        self.drone_max_descent_speed = drone_max_descent_speed,
+        self.drone_max_ascent_speed = drone_max_ascent_speed
+        self.drone_max_descent_speed = drone_max_descent_speed
         self.drone_max_altitude = drone_max_altitude
         self.drone_min_altitude = drone_min_altitude
         self.drone_height = drone_height
         self.drone_battery = drone_battery
 
-        self.drone_mass = drone_mass,
-        self.drone_rotor_area = drone_rotor_area,
-        self.drone_rotor_count = drone_rotor_count,
-        self.drone_front_area = drone_front_area,
+        self.drone_mass = drone_mass
+        self.drone_front_area = drone_front_area
         self.drone_drag_factor = drone_drag_factor
-        self.drone_climb_efficiency = drone_climb_efficiency,
-        self.drone_descent_factor = drone_descent_factor,
-        self.drone_max_travel_distance_empty = drone_max_travel_distance_empty,
-        self.drone_max_travel_distance_cargo = drone_max_travel_distance_cargo,
+        self.drone_climb_efficiency = drone_climb_efficiency
+        self.drone_descent_factor = drone_descent_factor
+        self.drone_max_travel_distance_empty = drone_max_travel_distance_empty
+        self.drone_max_travel_distance_cargo = drone_max_travel_distance_cargo
         self.drone_max_travel_distance_speed = drone_max_travel_distance_speed
 
 
@@ -121,9 +117,8 @@ class DroneModel(Model):
             save_every: int = 10,
 
             # Stats for battery drain rate calculations
+            drone_battery: int = 14_300_000,  # J
             drone_mass: float = 65, # kg
-            drone_rotor_area: float = 5.94, # m^2
-            drone_rotor_count: int = 8,
             drone_front_area: float = 1.06, # m^2
             drone_drag_factor: float = 1.1,
             drone_climb_efficiency: float = 0.8,
@@ -131,7 +126,6 @@ class DroneModel(Model):
             drone_max_travel_distance_empty: int = 28000, # m
             drone_max_travel_distance_cargo: int = 16000, # m
             drone_max_travel_distance_speed: int = 15, # m/s, this value is the one used to determine the 2 variables above, do not confuse with drone_speed
-            drone_battery: int = 14_300_000 # J
     ):
         super().__init__()
         self.width = width
@@ -155,8 +149,6 @@ class DroneModel(Model):
             drone_battery=drone_battery,
 
             drone_mass=drone_mass,
-            drone_rotor_area=drone_rotor_area,
-            drone_rotor_count=drone_rotor_count,
             drone_front_area=drone_front_area,
             drone_drag_factor=drone_drag_factor,
             drone_climb_efficiency=drone_climb_efficiency,
@@ -268,7 +260,7 @@ class DroneModel(Model):
                     second_drone_last_pos = add_hex_vectors(second_drone_last_pos, second_drone_speed)
 
             # check for terrain collisions
-            if drone.check_for_collision_with_terrain() or drone.check_for_collision_with_obstacle():
+            if drone.check_for_collision_with_terrain():
                 delete_drones_set.add(drone)
                 collided_drones_set.add(drone)
             
@@ -301,9 +293,6 @@ class DroneModel(Model):
 
     def get_hubs(self) -> AgentSet:
         return self.agents.select(agent_type=Hub)
-
-    def get_obstacles(self) -> AgentSet:
-        return self.agents.select(agent_type=Obstacle)
 
     def step(self):
         """Execute one simulation step."""

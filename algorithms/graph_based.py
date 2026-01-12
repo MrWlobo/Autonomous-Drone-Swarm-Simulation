@@ -4,7 +4,6 @@ import heapq
 from typing import TYPE_CHECKING, Optional, Callable
 
 from agents.drop_zone import DropZone
-from agents.obstacle import Obstacle
 from agents.package import Package
 from algorithms.base import Strategy, HubAction, DroneAction
 from mesa.discrete_space import Cell
@@ -199,7 +198,6 @@ class GraphBased(Strategy):
             neighbor_cell = None
             if 0 <= col < self.model.grid.width and 0 <= row < self.model.grid.height:
                 neighbor_cell = self.coord_map[col, row]
-            if neighbor_cell and all(not isinstance(agent, Obstacle) for agent in neighbor_cell.agents):
                 neighbors.append(neighbor_cell)
 
         return neighbors

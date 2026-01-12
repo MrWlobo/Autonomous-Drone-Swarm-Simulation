@@ -45,14 +45,6 @@ def ModelInstance():
             "max": 50,
             "step": 1,
         },
-        "num_obstacles": {
-            "type": "SliderInt",
-            "value": 500,
-            "label": "Number of Obstacles",
-            "min": 0,
-            "max": 500,
-            "step": 1,
-        },
         "num_hubs": {
             "type": "SliderInt",
             "value": 10,
@@ -109,7 +101,6 @@ def ModelInstance():
     num_drones=model_params["num_drones"]["value"],
     num_packages=model_params["num_packages"]["value"],
     num_hubs=model_params["num_hubs"]["value"],
-    num_obstacles=model_params["num_obstacles"]["value"],
     algorithm_name=model_params["algorithm_name"]["value"],
     initial_state_setter_name=model_params["initial_state_setter_name"]["value"],
     drone_speed=model_params["drone_speed"]["value"],

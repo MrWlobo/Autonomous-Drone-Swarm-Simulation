@@ -6,7 +6,6 @@ import random
 
 from mesa.examples.basic.boid_flockers.app import model
 
-from agents.obstacle import Obstacle
 from agents.package import Package
 from algorithms.base import DroneAction
 from utils.distance import *
@@ -90,13 +89,13 @@ class Drone(CellAgent):
             self.destroy()
 
         elif action == DroneAction.ASCENT:
-            self.ascent()
+            pass
 
         elif action == DroneAction.DESCENT:
-            self.descent(target)
+            pass
 
         if action != DroneAction.REST:
-            self.battery -= self.battery_drain_rate
+            pass
 
     def __eq__(self, other):
         if other is None:
@@ -156,10 +155,10 @@ class Drone(CellAgent):
                     weight_h = 1 - abs(drone_altitude_difference)/max_distance_h
                     if drone_altitude_difference >= 0:
                         altitude_vector = weight_h * self.get_acceleration()
-                        drone_altitude_vector = min(altitude_vector, self.max_ascent_speed[0])
+                        drone_altitude_vector = min(altitude_vector, self.max_ascent_speed)
                     else:
                         altitude_vector = weight_h * self.get_acceleration()
-                        drone_altitude_vector = - min(altitude_vector, self.max_descent_speed[0])
+                        drone_altitude_vector = - min(altitude_vector, self.max_descent_speed)
 
         return repulsive_vector, drone_altitude_vector
 
@@ -239,15 +238,15 @@ class Drone(CellAgent):
             min_altitude = self.min_altitude + self.model.get_elevation(self.cell.coordinate)
             if drone_bottom_altitude - min_altitude < self.altitude_correct_margin:
                 weight = 1 - max(drone_bottom_altitude - min_altitude, 0) / self.altitude_correct_margin
-                drone_altitude_vector += weight * self.max_ascent_speed[0] * 2        # add more weight to the ascent
+                drone_altitude_vector += weight * self.max_ascent_speed * 2        # add more weight to the ascent
             
             drone_top_altitude = self.altitude + self.height
             max_altitude = self.max_altitude + self.model.get_elevation(self.cell.coordinate)
             if max_altitude - drone_top_altitude < self.altitude_correct_margin:
                 weight = 1 - max(max_altitude - drone_top_altitude, 0) / self.altitude_correct_margin
-                drone_altitude_vector -= weight * self.max_descent_speed[0]
+                drone_altitude_vector -= weight * self.max_descent_speed
 
-        drone_altitude_vector = np.clip(drone_altitude_vector, -self.max_descent_speed[0], self.max_ascent_speed[0])
+        drone_altitude_vector = np.clip(drone_altitude_vector, -self.max_descent_speed, self.max_ascent_speed)
         drone_altitude_vector += random.uniform(-0.2, 0.2)    # add some randomness to the height vector
 
         self.altitude += drone_altitude_vector
@@ -290,14 +289,6 @@ class Drone(CellAgent):
     def check_for_collision_with_terrain(self) -> bool:
         return self.altitude < self.model.get_elevation(self.cell.coordinate)
 
-    def check_for_collision_with_obstacle(self) -> bool:
-        result = False
-        for agent in self.cell.agents:
-            if isinstance(agent, Obstacle):
-                result = True
-                break
-        return result
-
     def check_for_lack_of_energy(self) -> bool:
         return self.battery <= 0
 
@@ -308,15 +299,6 @@ class Drone(CellAgent):
             self.model.failed_deliveries.append(self.package)   # Don't delete package, its stored as completed in model
         self.model.agents.remove(self)  
         logging.warning(f"Drone destroyed at {self.cell.coordinate}, id: {self.unique_id}, altitide: {self.altitude}")
-
-    def ascent(self) -> None:
-        self.altitude += self.max_ascent_speed
-
-    def descent(self, elevation) -> None:
-        new_altitude = self.altitude - self.max_descent_speed
-        if new_altitude < elevation:
-            new_altitude = elevation
-        self.altitude = new_altitude
 
     def change_altitude(self, altitude) -> None:
         """
