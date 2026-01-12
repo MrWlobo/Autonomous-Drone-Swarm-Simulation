@@ -120,14 +120,21 @@ class Drone(CellAgent):
         
         self.move_to(target)
 
-    def max_speed_nearby(self, distance):
+    def _max_speed_nearby(self, distance):
         if distance <= 10:
             return 1
         else:
-            return distance // 5
+            return 2 + (distance-10) // (16//self.get_acceleration())
+        
+    def _is_near_hub(self):
+        for hub in self.model.get_hubs():
+            if hub.cell is None or hub.unique_id == self.unique_id:
+                continue
+            if hex_distance(self.cell, hub.cell) <= 1:
+                return True
+        return False
 
-
-    def get_repulsive_vector(self, target_Cell: Cell):
+    def _get_repulsive_vector(self, target_Cell: Cell):
         repulsive_vector = (0,0,0)
         drone_altitude_vector = 0
         if self.cell is None:
@@ -138,7 +145,7 @@ class Drone(CellAgent):
         max_distance_h = 15
 
         breaking_range = (cur_speed + self.get_acceleration()) / 2 * math.ceil(cur_speed / self.get_acceleration())
-        breaking_range = round(breaking_range * 2.5)
+        breaking_range = round(breaking_range * 1.8) + 1
 
         for other_drone in self.model.get_drones():
             if other_drone.cell is None or other_drone.unique_id == self.unique_id:
@@ -161,6 +168,84 @@ class Drone(CellAgent):
                         drone_altitude_vector = - min(altitude_vector, self.max_descent_speed)
 
         return repulsive_vector, drone_altitude_vector
+    
+    def _calculate_desired_speed(self, target_cell, end_speed_percentage):
+        cur_speed = hex_vector_len(self.cur_speed_vec)
+        end_speed = max(round(self.speed * end_speed_percentage), 1)
+        
+        accel = self.get_acceleration()
+        steps_to_slow = math.ceil((cur_speed - end_speed) / accel)
+        breaking_range = (cur_speed + end_speed) / 2 * steps_to_slow
+        
+        near_target = hex_distance(self.cell, target_cell) <= round(breaking_range * 1.8 + cur_speed + 5)
+
+        # dynamic limits of max speed if nearby drones or hubs
+        max_speed = self.speed
+        for entity in list(self.model.get_drones()) + list(self.model.get_hubs()):
+            if entity.cell is None or entity.unique_id == self.unique_id:
+                continue
+            max_speed = min(max_speed, self._max_speed_nearby(hex_distance(self.cell, entity.cell)))
+
+        if near_target:
+            return min(max(cur_speed - accel, end_speed), max_speed)
+        else:
+            return min(cur_speed + accel, max_speed)
+    
+    def _get_steering_vector(self, target_cell, desired_speed):
+        cur_speed = hex_vector_len(self.cur_speed_vec)
+        speed_change = desired_speed - cur_speed
+        accel = self.get_acceleration()
+        correct_accel = max(accel//2, 1)
+
+        if speed_change > 0:
+            target_vec = normalize_hex_vector(hex_vector(self.cell, target_cell), cur_speed)
+            correct_vec = sub_hex_vectors(target_vec, self.cur_speed_vec)
+            if hex_vector_len(correct_vec) <= correct_accel:
+                return normalize_hex_vector(hex_vector(self.cell, target_cell), speed_change)
+            return normalize_hex_vector(correct_vec, correct_accel)
+
+        if speed_change < 0:
+            return reverse_hex_vector(normalize_hex_vector(self.cur_speed_vec, abs(speed_change)))
+
+        # speed_change == 0 (maintaining speed with course correction)
+        target_vec = normalize_hex_vector(hex_vector(self.cell, target_cell), cur_speed)
+        correct_vec = sub_hex_vectors(target_vec, self.cur_speed_vec)
+        if hex_vector_len(correct_vec) > correct_accel and cur_speed >= self.speed / 2:
+            return normalize_hex_vector(correct_vec, correct_accel)
+    
+        return (0, 0, 0)
+    
+    def _calculate_altitude_change(self, target_cell, ground_repulsion, initial_repulsion_z):
+        z_vector = initial_repulsion_z
+        
+        if ground_repulsion:
+            elevation = self.model.get_elevation(self.cell.coordinate)
+            
+            # Repulsion from below
+            bottom = self.altitude - (self.package.height if self.package else 0)
+            min_alt = self.min_altitude + elevation
+            if bottom - min_alt < self.altitude_correct_margin:
+                weight = 1 - max(bottom - min_alt, 0) / self.altitude_correct_margin
+                z_vector += weight * self.max_ascent_speed * 2
+            
+            # Repulsion from above
+            top = self.altitude + self.height
+            max_alt = self.max_altitude + elevation
+            if max_alt - top < self.altitude_correct_margin:
+                weight = 1 - max(max_alt - top, 0) / self.altitude_correct_margin
+                z_vector -= weight * self.max_descent_speed
+
+        z_vector = np.clip(z_vector, -self.max_descent_speed, self.max_ascent_speed)
+        return z_vector + random.uniform(-0.2, 0.2)
+
+    def _execute_hex_move(self):
+        cur_coords_hex = xy_to_qrs(self.cell.coordinate)
+        move_coords_hex = add_hex_vectors(cur_coords_hex, self.cur_speed_vec)
+        x, y = qrs_to_xy(move_coords_hex)
+        move_cell_coords = (np.clip(x, 0, self.grid.width - 1), np.clip(y, 0, self.grid.height - 1))
+        move_cell = self.grid._cells[move_cell_coords]
+        self.move_to_cell(move_cell)
+
 
     def move_towards(self, target_cell: Cell,
                      end_speed_percentage: float = 0,
@@ -175,90 +260,38 @@ class Drone(CellAgent):
                                 this includes repulsion vectors from other drones and current cell's terrain
             ground_repulsion: (bool) whether to add repulsion vectors from the ground
         """
+
+        # 1. calculating speed and direction
+        desired_speed = self._calculate_desired_speed(target_cell, end_speed_percentage)
+        change_vec = self._get_steering_vector(target_cell, desired_speed)
+        is_near_hub = self._is_near_hub()
+
+        # 2. repulsion vectors
+        repulsion_vec, repulsion_z = (0,0,0), 0
+        if repulsive_vectors and not is_near_hub:
+            repulsion_vec, repulsion_z = self._get_repulsive_vector(target_cell)
+            change_vec = add_hex_vectors(change_vec, repulsion_vec)
+            accel_len = min(hex_vector_len(change_vec), self.get_acceleration())
+            change_vec = normalize_hex_vector(change_vec, accel_len)
+
+        # 3. altitude change
+        self.altitude += self._calculate_altitude_change(target_cell, ground_repulsion, repulsion_z)
+
+        # 4. move vector change
+        new_vec = add_hex_vectors(self.cur_speed_vec, change_vec)
+        new_speed = min(hex_vector_len(new_vec), self.speed, desired_speed)
+        if hex_vector_len(repulsion_vec) == 0 and desired_speed == 1:
+            if not is_near_hub and random.randint(1, 20) == 1:  # chance for random move to avoid being stuck
+                neighbors = list(self.cell.get_neighborhood())
+                target_cell = random.choice(neighbors)
+            self.cur_speed_vec = normalize_hex_vector(hex_vector(self.cell, target_cell), 1)
+        else:
+            self.cur_speed_vec = normalize_hex_vector(new_vec, new_speed+1)
+
+        # 5. physical move
+        self._execute_hex_move()
+
         
-        cur_speed = hex_vector_len(self.cur_speed_vec)
-        end_speed = round(self.speed * end_speed_percentage)
-        breaking_range = (cur_speed + end_speed)/2 * math.ceil((cur_speed - end_speed) / self.get_acceleration())
-        end_speed = max(end_speed, 1)   # we need to make sure it is at least 1
-        near_target = hex_distance(self.cell, target_cell) <= round(breaking_range * 1.8 + cur_speed + 5)
-
-        max_speed = self.speed      # lower max speed if nearby to other drones/hubs
-        for other_drone in self.model.get_drones():
-            if other_drone.cell is None or other_drone.unique_id == self.unique_id:
-                continue
-            max_speed = min(max_speed, self.max_speed_nearby(hex_distance(self.cell, other_drone.cell)))
-        for hub in self.model.get_hubs():
-            if hub.cell is None:
-                continue
-            max_speed = min(max_speed, self.max_speed_nearby(hex_distance(self.cell, hub.cell)))
-
-        if near_target == False:    # go faster (if possible) if we are far away
-            new_speed = min(cur_speed + self.get_acceleration(), self.speed)    
-            
-        if near_target:             # slow down to end_speed if we are near target cell
-            new_speed = max(cur_speed - self.get_acceleration(), end_speed)
-        new_speed = min(new_speed, max_speed)
-        speed_change =  new_speed - cur_speed
-        change_vector = (0,0,0)
-        if speed_change > 0:    # speed up towards target
-            target_vector = normalize_hex_vector(hex_vector(self.cell, target_cell), cur_speed)
-            correct_vector = sub_hex_vectors(target_vector, self.cur_speed_vec)
-            if hex_vector_len(correct_vector) <= self.get_acceleration():
-                change_vector = normalize_hex_vector(hex_vector(self.cell, target_cell), speed_change)
-            else:
-                change_vector = normalize_hex_vector(correct_vector, self.get_acceleration())
-
-        elif speed_change < 0:   # slow down, no direction
-            change_vector = reverse_hex_vector(normalize_hex_vector(self.cur_speed_vec, abs(speed_change)))
-
-        elif speed_change == 0:
-            if cur_speed <= self.get_acceleration():
-                change_vector = (0,0,0)
-                self.cur_speed_vec = normalize_hex_vector(hex_vector(self.cell, target_cell), cur_speed)
-            elif cur_speed >= self.speed / 2:
-                target_vector = normalize_hex_vector(hex_vector(self.cell, target_cell), cur_speed)
-                correct_vector = sub_hex_vectors(target_vector, self.cur_speed_vec)
-                if hex_vector_len(correct_vector) <= self.get_acceleration():
-                    change_vector = (0,0,0)
-                else:
-                    change_vector = normalize_hex_vector(correct_vector, self.get_acceleration())
-
-        drone_altitude_vector = 0
-
-        if repulsive_vectors or ground_repulsion:
-            repulsive_vector, drone_altitude_vector = self.get_repulsive_vector(target_cell)
-
-        if repulsive_vectors:   # add repulsive vectors
-            change_vector = add_hex_vectors(change_vector, repulsive_vector)
-            change_vector_len = min(hex_vector_len(change_vector), self.get_acceleration())
-            change_vector = normalize_hex_vector(change_vector, change_vector_len)
-
-        if ground_repulsion:    # push the drone if it's too close to min/max height
-            drone_bottom_altitude = self.altitude - (self.package.height if self.package else 0)
-            min_altitude = self.min_altitude + self.model.get_elevation(self.cell.coordinate)
-            if drone_bottom_altitude - min_altitude < self.altitude_correct_margin:
-                weight = 1 - max(drone_bottom_altitude - min_altitude, 0) / self.altitude_correct_margin
-                drone_altitude_vector += weight * self.max_ascent_speed * 2        # add more weight to the ascent
-            
-            drone_top_altitude = self.altitude + self.height
-            max_altitude = self.max_altitude + self.model.get_elevation(self.cell.coordinate)
-            if max_altitude - drone_top_altitude < self.altitude_correct_margin:
-                weight = 1 - max(max_altitude - drone_top_altitude, 0) / self.altitude_correct_margin
-                drone_altitude_vector -= weight * self.max_descent_speed
-
-        drone_altitude_vector = np.clip(drone_altitude_vector, -self.max_descent_speed, self.max_ascent_speed)
-        drone_altitude_vector += random.uniform(-0.2, 0.2)    # add some randomness to the height vector
-
-        self.altitude += drone_altitude_vector
-        new_speed = min(hex_vector_len(add_hex_vectors(self.cur_speed_vec, change_vector)), self.speed)
-        self.cur_speed_vec = normalize_hex_vector(add_hex_vectors(self.cur_speed_vec, change_vector), new_speed)
-
-        cur_coords_hex = xy_to_qrs(self.cell.coordinate)
-        move_coords_hex = add_hex_vectors(cur_coords_hex, self.cur_speed_vec)
-        x, y = qrs_to_xy(move_coords_hex)
-        move_cell_coords = (np.clip(x, 0, self.grid.width - 1), np.clip(y, 0, self.grid.height - 1))
-        move_cell = self.grid._cells[move_cell_coords]
-        self.move_to_cell(move_cell)
 
     def pickup(self, package: Package) -> None:
         if package and package in self.assigned_packages:

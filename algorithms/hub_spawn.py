@@ -77,7 +77,7 @@ class HubSpawn(Strategy):
                 continue # skip drones that are already stored/collected
             
             # check if drone is at the hub location
-            if drone.cell.coordinate == hub.cell.coordinate and drone.cell:
+            if drone.cell.coordinate == hub.cell.coordinate and drone.cell and drone in hub.incomming_drones:
                 if len(drone.assigned_packages)==0 and drone.package is None and hex_vector_len(drone.cur_speed_vec) <= 1:
                     if hub.capacity > len(hub.stored_drones):
                         print('hub collect')

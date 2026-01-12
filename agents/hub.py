@@ -42,8 +42,6 @@ class Hub(CellAgent):
             drone = self.stored_drones.pop()
             drone.cell = self.cell
             drone.assigned_packages = [Hub.package_requests.pop()]
-            
-            self.incomming_drones.add(drone)
 
         elif action == HubAction.COLLECT_DRONE:
             self.stored_drones.append(target)

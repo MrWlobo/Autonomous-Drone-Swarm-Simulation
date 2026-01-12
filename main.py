@@ -92,7 +92,7 @@ model_params = {
     },
     "show_gridlines": {
         "type": "Checkbox",
-        "value": True,
+        "value": False,
         "label": "Show Gridlines",
     },
 }
