@@ -87,3 +87,15 @@ class Chongqing38774InitialStateSetter(InitialStateSetter):
             h = Hub(model, cell=cell)
             
             hubs.append(h)
+
+        # Place drones in hubs if possible
+        hub_cap = sum(h.capacity for h in hubs)
+        available_hubs = list(hubs)
+        can_insert = min(len(drones), hub_cap)
+        while can_insert:
+            for h in available_hubs:
+                if not h.is_full() and can_insert:
+                    drone = drones.pop()
+                    h.stored_drones.append(drone)
+                    drone.cell = None
+                    can_insert -= 1
