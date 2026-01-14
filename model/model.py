@@ -51,6 +51,25 @@ def compute_collision_percentage(model: DroneModel):
     
     return (model.total_collisions / total_history) * 100
 
+def _get_drone_agls(model: DroneModel) -> list[float]:
+    """Helper to get list of Above Ground Level (AGL) altitudes for all active drones."""
+    drones = [d for d in model.get_drones() if d.cell is not None]
+    if not drones:
+        return []
+    return [d.altitude - model.get_elevation(d.cell.coordinate) for d in drones]
+
+def compute_min_altitude(model: DroneModel):
+    agls = _get_drone_agls(model)
+    return min(agls) if agls else 0
+
+def compute_mean_altitude(model: DroneModel):
+    agls = _get_drone_agls(model)
+    return sum(agls) / len(agls) if agls else 0
+
+def compute_max_altitude(model: DroneModel):
+    agls = _get_drone_agls(model)
+    return max(agls) if agls else 0
+
 
 class DroneStats:
     def __init__(
@@ -115,6 +134,13 @@ class DroneModel(Model):
             background: Path = None,
             show_gridlines: bool = True,
             save_every: int = 10,
+            
+            # Plot display flags
+            show_active_drones_plot: bool = False,
+            show_collisions_plot: bool = False,
+            show_completed_deliveries_plot: bool = False,
+            show_avg_delivery_time_plot: bool = False,
+            show_altitude_plot: bool = False,
 
             # Stats for battery drain rate calculations
             drone_battery: int = 14_300_000,  # J
@@ -135,6 +161,13 @@ class DroneModel(Model):
         self.total_collisions = 0 
         self.total_dead_drones = 0
         
+        # Initialize display flags
+        self.show_active_drones_plot = show_active_drones_plot
+        self.show_collisions_plot = show_collisions_plot
+        self.show_completed_deliveries_plot = show_completed_deliveries_plot
+        self.show_avg_delivery_time_plot = show_avg_delivery_time_plot
+        self.show_altitude_plot = show_altitude_plot
+
         self.output_dir = None
         self.output_file = None
         
@@ -199,7 +232,10 @@ class DroneModel(Model):
                 "Active Drones": lambda m: len(m.get_drones()),
                 "Collisions(%)": compute_collision_percentage,
                 "Completed Deliveries": lambda m: len(m.completed_deliveries),
-                "Avg Delivery Time": compute_avg_delivery_time
+                "Avg Delivery Time": compute_avg_delivery_time,
+                "Min Altitude": compute_min_altitude,
+                "Mean Altitude": compute_mean_altitude,
+                "Max Altitude": compute_max_altitude,
             }
         )
 

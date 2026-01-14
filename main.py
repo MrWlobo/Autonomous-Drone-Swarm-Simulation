@@ -1,17 +1,37 @@
+import solara
 from mesa.experimental.devs import ABMSimulator
 from mesa.visualization import SolaraViz, make_plot_component
 from model.model import DroneModel
 # don't remove the 'unused' Layout import, it is necessary for custom CSS to work 
 from visualization.viz import VisualizationComponent, Layout # pylint: disable=unused-import # noqa: F401 
 
-# Create plot component
-multi_plot = make_plot_component([
-    "Active Drones", 
-    "Collisions(%)", 
-    "Completed Deliveries", 
-    "Avg Delivery Time"
-])
+# Create individual plot components
+plot_active_drones = make_plot_component(["Active Drones"])
+plot_collisions = make_plot_component(["Collisions(%)"])
+plot_completed_deliveries = make_plot_component(["Completed Deliveries"])
+plot_avg_delivery_time = make_plot_component(["Avg Delivery Time"])
+plot_altitude = make_plot_component(["Min Altitude", "Mean Altitude", "Max Altitude"])
 
+@solara.component
+def PlotsComponent(model: DroneModel):
+    # Helper to handle the tuple return type of make_plot_component
+    def render(plot_obj):
+        if isinstance(plot_obj, tuple):
+            component = plot_obj[0]
+            return component(model)
+        return plot_obj(model)
+
+    with solara.Column():
+        if model.show_active_drones_plot:
+            render(plot_active_drones)
+        if model.show_collisions_plot:
+            render(plot_collisions)
+        if model.show_completed_deliveries_plot:
+            render(plot_completed_deliveries)
+        if model.show_avg_delivery_time_plot:
+            render(plot_avg_delivery_time)
+        if model.show_altitude_plot:
+            render(plot_altitude)
 
 model_params = {
     "width": 100,
@@ -95,6 +115,31 @@ model_params = {
         "value": False,
         "label": "Show Gridlines",
     },
+    "show_active_drones_plot": {
+        "type": "Checkbox",
+        "value": False,
+        "label": "Show Active Drones Plot",
+    },
+    "show_collisions_plot": {
+        "type": "Checkbox",
+        "value": False,
+        "label": "Show Collisions Plot",
+    },
+    "show_completed_deliveries_plot": {
+        "type": "Checkbox",
+        "value": False,
+        "label": "Show Completed Deliveries Plot",
+    },
+    "show_avg_delivery_time_plot": {
+        "type": "Checkbox",
+        "value": False,
+        "label": "Show Avg Delivery Time Plot",
+    },
+    "show_altitude_plot": {
+        "type": "Checkbox",
+        "value": False,
+        "label": "Show Altitude Plot",
+    },
 }
 
 simulator = ABMSimulator()
@@ -114,12 +159,18 @@ initial_model = DroneModel(
     simulator=simulator,
     show_gridlines=model_params["show_gridlines"]["value"],
     save_every=model_params["save_every"]["value"],
+    # Map the boolean params to the model attributes
+    show_active_drones_plot=model_params["show_active_drones_plot"]["value"],
+    show_collisions_plot=model_params["show_collisions_plot"]["value"],
+    show_completed_deliveries_plot=model_params["show_completed_deliveries_plot"]["value"],
+    show_avg_delivery_time_plot=model_params["show_avg_delivery_time_plot"]["value"],
+    show_altitude_plot=model_params["show_altitude_plot"]["value"],
 )
 
 page = SolaraViz(
     model=initial_model,
     components=[VisualizationComponent,
-                multi_plot,
+                PlotsComponent,
                 ], 
     model_params=model_params,
     name="Autonomous Drone Swarm Simulation",
