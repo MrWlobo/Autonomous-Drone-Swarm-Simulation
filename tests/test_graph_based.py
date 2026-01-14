@@ -46,14 +46,6 @@ def GraphBasedInstance():
             "max": 50,
             "step": 1,
         },
-        "num_obstacles": {
-            "type": "SliderInt",
-            "value": 500,
-            "label": "Number of Obstacles",
-            "min": 0,
-            "max": 500,
-            "step": 1,
-        },
         "num_hubs": {
             "type": "SliderInt",
             "value": 10,
@@ -86,14 +78,6 @@ def GraphBasedInstance():
             "max": 100,
             "step": 1,
         },
-        "drain_rate": {
-            "type": "SliderInt",
-            "value": 1,
-            "label": "Drone Battery Drain Rate",
-            "min": 0,
-            "max": 5,
-            "step": 1,
-        },
         "show_gridlines": {
             "type": "Checkbox",
             "value": False,
@@ -110,13 +94,10 @@ def GraphBasedInstance():
     num_drones=model_params["num_drones"]["value"],
     num_packages=model_params["num_packages"]["value"],
     num_hubs=model_params["num_hubs"]["value"],
-    num_obstacles=model_params["num_obstacles"]["value"],
     algorithm_name=model_params["algorithm_name"]["value"],
     initial_state_setter_name=model_params["initial_state_setter_name"]["value"],
     drone_speed=model_params["drone_speed"]["value"],
     drone_acceleration=model_params["drone_acceleration"]["value"],
-    drone_battery=model_params["drone_battery"]["value"],
-    drain_rate=model_params["drain_rate"]["value"],
     simulator=simulator,
     show_gridlines=model_params["show_gridlines"]["value"],
     )
@@ -127,22 +108,157 @@ def GraphBasedInstance():
 
 def test__create_adjacency_matrix_size(GraphBasedInstance):
     GraphBasedInstance._create_adjacency_matrix()
-    assert len(GraphBasedInstance.adjacency_matrix) == len(GraphBasedInstance.model.get_hubs()), "Number of rows should be equal to the number of hubs."
+    assert len(GraphBasedInstance.adjacency_matrix) == len(GraphBasedInstance.model.get_hubs()) + len(GraphBasedInstance.model.get_packages()), "Number of rows should be equal to the sum of the numbers of hubs and packages."
     assert len(GraphBasedInstance.adjacency_matrix[0]) == len(GraphBasedInstance.model.get_packages()) + len(GraphBasedInstance.model.get_hubs()), "Number of columns should be equal to the sum of the numbers of hubs and packages."
 
-def test__neighbors_valid_coords(GraphBasedInstance):
+def test__direct_distance(GraphBasedInstance):
     GraphBasedInstance._create_adjacency_matrix()
-    coordinates = (20, 61)
-    neighbors = GraphBasedInstance._neighbors(Cell(coordinates, None))
-    for neighbor in neighbors:
-        assert abs(neighbor.coordinate[0] - coordinates[0]) <= 1
-        assert abs(neighbor.coordinate[1] - coordinates[1]) <= 1
-        assert neighbor.coordinate != coordinates
+    for i, j in zip(range(20, 40), range(20, 40)):
+        for x, y in zip(range(20, 40), range(20, 40)):
+            c1 = Cell((i, j), [])
+            c2 = Cell((x, y), [])
+            assert len(GraphBasedInstance._direct_path(c1, c2)) == hex_distance(c1, c2) + 1
 
-def test__astar(GraphBasedInstance):
+def test_find_best_path_does_not_crash(GraphBasedInstance):
     GraphBasedInstance._create_adjacency_matrix()
-    for drone in GraphBasedInstance.model.get_drones():
-        for package in GraphBasedInstance.model.get_packages():
-            drone_cell = drone.cell
-            package_cell = package.cell
-            assert GraphBasedInstance._astar(drone_cell, package_cell, hex_distance) is not None
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+    print(path)
+    print(type(path))
+    assert isinstance(path, list)
+
+def test_find_best_path_structure(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+
+    for entry in path:
+        assert isinstance(entry, tuple), f"Path entry {entry} is not a tuple"
+        assert len(entry) == 2, f"Path entry {entry} does not have 2 elements"
+        node, battery = entry
+        assert battery >= 0, f"Battery value {battery} is negative"
+        assert hasattr(node, "cell"), f"Node {node} has no cell attribute"
+
+def test_delivery_implies_return(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+
+    if not path:
+        pytest.skip("No feasible path found")
+
+    # Last node must be a hub
+    last_node, _ = path[-1]
+    assert last_node in GraphBasedInstance.model.get_hubs(), \
+        f"Last node {last_node} is not a hub"
+
+    # Drone package appears at most once
+    drop_count = sum(1 for node, _ in path if node is drone.package)
+    assert drop_count <= 1, f"Package appears {drop_count} times in path"
+
+def test_hub_recharge(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+
+    for (node, battery), (next_node, next_battery) in zip(path, path[1:]):
+        if node in GraphBasedInstance.model.get_hubs():
+            assert next_battery >= battery, f"Battery did not increase at hub {node}"
+        else:
+            assert next_battery <= battery, f"Battery increased outside hub at {node}"
+
+def test_battery_never_drops_below_safe(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+    if not path:
+        pytest.skip("No feasible path found")
+
+    safe_level = GraphBasedInstance.model.drone_stats.drone_safe_battery_level
+
+    for node, battery in filter(lambda x: x[1] != 0, path):
+        assert battery >= safe_level, f"Battery below safe level at {node}: {battery}"
+
+def test_no_path_when_package_unreachable(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    # Artificially set drone battery to very low
+    drone.battery = 1
+
+    path = GraphBasedInstance._find_best_path(drone)
+    assert path == [], "Path should be empty if drone cannot reach drop zone safely"
+
+def test_path_ends_at_nearest_hub(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+    hubs = list(GraphBasedInstance.model.get_hubs())
+
+    if not drones or not packages or not hubs:
+        pytest.skip("No drones, packages, or hubs")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+    if not path:
+        pytest.skip("No feasible path found")
+
+    last_node, _ = path[-1]
+    drop_idx = len(GraphBasedInstance.hub_list) + GraphBasedInstance.drop_zone_list.index(drone.package.drop_zone)
+
+    min_cost_idx = min(
+        range(len(GraphBasedInstance.hub_list)),
+        key=lambda h_idx: GraphBasedInstance._estimated_cost(drone, *GraphBasedInstance.adjacency_matrix[drop_idx][h_idx])
+    )
+
+    assert last_node == GraphBasedInstance.hub_list[min_cost_idx], \
+        f"Last node {last_node} is not the minimal energy hub according to adjacency matrix"

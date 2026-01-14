@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import heapq
-from typing import TYPE_CHECKING, Optional, Callable
+import itertools
+from typing import TYPE_CHECKING
 
 from agents.drop_zone import DropZone
 from agents.package import Package
@@ -11,7 +12,6 @@ from agents.drone import Drone
 from agents.hub import Hub
 from agents.collision import Collision
 from utils.distance import *
-from utils.agent_utils import get_closest_available_hub
 
 if TYPE_CHECKING:
     from model.model import DroneModel
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 #     drone. It then uses the chargers on its way to get back to a comfortable energy level.
 #
 # 4C. If the package is unreachable (eg. cost of getting to it from the nearest hub and back
-#     is > 100% of drone;s battery life) the task is discarded and a new one is assigned.
+#     is > 100% of drone's battery life) the task is discarded and a new one is assigned.
 #
 # 5. Drone comes back to the nearest hub that still has packages, gets assigned a new task and
 #    recharges enough to perform it.
@@ -51,6 +51,8 @@ class GraphBased(Strategy):
         super().__init__(model)
         self.coord_map = None
         self.adjacency_matrix = None
+        self.hub_list = list(self.model.get_hubs())
+        self.drop_zone_list = list(self.model.get_drop_zones())
 
     def register_drone(self, drone):
         pass
@@ -88,7 +90,6 @@ class GraphBased(Strategy):
 
         - Rows correspond to hubs.
         - Columns correspond to hubs followed by packages.
-        - All values are initialized to 0.
 
         The resulting matrix is stored in `self.adjacency_matrix`.
 
@@ -100,168 +101,286 @@ class GraphBased(Strategy):
 
         self._build_coord_map()
 
-        hub_count = len(self.model.get_hubs())
-        package_count = len(self.model.get_packages())
-        adj_mat = [[0 for _ in range(hub_count + package_count)] for _ in range(hub_count)]
+        hub_count = len(self.hub_list)
+        package_count = len(self.drop_zone_list)
+        adj_mat = [[(0, 0., 0.) for _ in range(hub_count + package_count)] for _ in range(hub_count + package_count)]
+
+        for i in range(hub_count + package_count):
+            for j in range(hub_count + package_count):
+                if j < hub_count:
+                    first_cell = self.hub_list[j].cell
+                else:
+                    first_cell = self.drop_zone_list[j - hub_count].cell
+                if j < hub_count:
+                    other_cell = self.hub_list[j].cell
+                else:
+                    other_cell = self.drop_zone_list[j - hub_count].cell
+
+                path = self._direct_path(first_cell, other_cell)
+                adj_mat[i][j] = self._distance(path)
+
         self.adjacency_matrix = adj_mat
 
-    def _astar(self, start_cell: Cell, target_cell: Cell, heuristic: Callable) -> Optional[list[Cell]]:
+    def _find_best_path(self, drone: Drone):
         """
-        Perform A* pathfinding from a start cell to a target cell.
+        Compute the best energy-feasible path for a drone to deliver its assigned package.
 
-        This method implements the A* search algorithm on a hex grid. It
-        maintains an open priority queue of nodes to explore and a closed
-        set of already-explored cells. Each node is represented by an
-        `AStarCell` that tracks the cost from the start, estimated cost
-        to the target, and a parent link for path reconstruction.
+        The path starts at the drone's current location, visits the assigned drop zone,
+        and ends at the hub that is most energy-efficient to reach from the drop zone.
+        Intermediate hubs may be visited for partial recharges if needed.
+
+        The algorithm uses a Dijkstra-like search over the adjacency matrix of hubs
+        and drop zones, where edge weights represent estimated energy costs for the drone
+        to traverse between points. Hubs allow partial recharges to ensure the drone's
+        battery remains above the safe threshold.
 
         Parameters
         ----------
-        start_cell : Cell
-            The starting cell for the pathfinding.
-        target_cell : Cell
-            The target cell to reach.
-        heuristic : Callable[[Cell, Cell], int]
-            A function that estimates the cost from a cell to the target.
+        drone : Drone
+            The drone for which to compute the delivery path. Must have `drone.package`
+            assigned.
 
         Returns
         -------
-        Optional[list[Cell]]
-            A list of cells representing the path from start to target in
-            order, or `None` if no path exists.
+        list[tuple[Hub | DropZone, float]]
+            An ordered list of tuples representing the nodes in the path and the drone's
+            battery level after reaching each node. The list includes:
+            - The starting node (implicitly the drone's current location),
+            - Any intermediate hubs used for partial recharges,
+            - The assigned drop zone,
+            - The final hub after completing the delivery.
+
+            If no feasible path exists (battery insufficient to reach drop zone or a hub safely),
+            returns an empty list.
 
         Notes
         -----
-        - The path is reconstructed using the parent links stored in each
-          `AStarCell`.
-        - The method uses a priority queue (`heapq`) ordered by f_score
-          (g_score + h_score) to efficiently explore nodes.
-        - Neighboring cells blocked by obstacles are ignored (handled by
-          `_neighbors` method).
+        - Only the assigned drop zone for the drone's package will be visited; other
+          drop zones are ignored.
+        - Partial recharge at hubs only restores enough battery to stay above the safe
+          threshold and reach the next hub, not a full recharge.
+        - The adjacency matrix used for energy calculations must include both hubs and
+          drop zones as nodes.
         """
 
-        start = AStarCell(start_cell, 0, heuristic(start_cell, target_cell),  None)
-        open_pq = [(start.g_score + start.h_score, start)]
-        heapq.heapify(open_pq)
-        closed = {}
+        if not drone.package:
+            return []
 
-        while True:
-            if not open_pq:
-                return None
-            f_score, current = heapq.heappop(open_pq)
-            closed[current.cell.coordinate] = current
+        start_cell = drone.cell
+        drop_idx = len(self.hub_list) + self.drop_zone_list.index(drone.package.drop_zone)
+        safe_battery_level = (self.model.drone_stats.drone_safe_battery_level * self.model.drone_stats.drone_battery) // 100
 
-            if current.cell.coordinate == target_cell.coordinate:
-                print(self._build_path(current))
-                return self._build_path(current)
+        start_edges = self._initialize_start_edges(drone, start_cell, drop_idx, safe_battery_level)
 
-            for neighbor_cell in self._neighbors(current.cell):
-                if neighbor_cell.coordinate in closed:
+        # Initialize priority queue
+        heap = []
+        counter = itertools.count()
+        for node_idx, battery_left, cost_so_far, node in start_edges:
+            heapq.heappush(heap, (cost_so_far, next(counter), node_idx, battery_left, [(node, 0)]))
+
+        visited = dict()
+
+        while heap:
+            cost_so_far, _, node_idx, battery_left, path_so_far = heapq.heappop(heap)
+
+            key = (node_idx, battery_left)
+            if key in visited and visited[key] <= cost_so_far:
+                continue
+            visited[key] = cost_so_far
+
+            # If reached drop zone, append nearest hub as final node
+            if node_idx == drop_idx:
+                # Find nearest hub from drop zone
+                nearest_hub_idx = min(
+                    range(len(self.hub_list)),
+                    key=lambda h_idx: self._estimated_cost(drone, *self.adjacency_matrix[drop_idx][h_idx])
+                )
+
+                # Append final hub to path
+                path_so_far.append((self.hub_list[nearest_hub_idx], 0))
+                return path_so_far
+
+            # Explore neighbors (hubs + drop zones)
+            for neighbor_idx, (distance, ascent, descent) in enumerate(self.adjacency_matrix[node_idx]):
+                if distance == 0:
                     continue
 
-                neighbor = AStarCell(neighbor_cell, current.g_score + 1, heuristic(neighbor_cell, target_cell), current)
-                heapq.heappush(open_pq, (neighbor.g_score + neighbor.h_score, neighbor))
+                # Disallow going to any drop zone except the assigned one
+                if neighbor_idx >= len(self.hub_list) and neighbor_idx != drop_idx:
+                    continue
 
-    def _neighbors(self, cell: Cell) -> list[Cell]:
+                energy_cost = self._estimated_cost(drone, distance, ascent, descent)
+                next_battery = battery_left - energy_cost
+
+                # Partial recharge at hubs
+                if neighbor_idx < len(self.hub_list):
+                    # Ensure enough to reach nearest hub safely
+                    nearest_hub_energy = min(
+                        self._estimated_cost(drone, *self.adjacency_matrix[neighbor_idx][h_idx])
+                        for h_idx in range(len(self.hub_list))
+                    )
+                    next_battery = max(next_battery, safe_battery_level + nearest_hub_energy)
+
+                if next_battery < safe_battery_level:
+                    continue  # cannot proceed safely
+
+                next_node = self.hub_list[neighbor_idx] if neighbor_idx < len(self.hub_list) \
+                    else self.drop_zone_list[neighbor_idx - len(self.hub_list)]
+
+                heapq.heappush(heap, (cost_so_far + energy_cost,
+                                      next(counter),
+                                      neighbor_idx,
+                                      next_battery,
+                                      path_so_far + [(next_node, next_battery)]))
+
+        # No feasible path found
+        return []
+
+    def _initialize_start_edges(self, drone: Drone, start_cell: Cell, drop_idx: int, safe_battery_level: int):
         """
-        Return all valid neighboring cells for a given cell on the hex grid.
+        Build the initial set of edges for a drone's pathfinding search.
 
-        This method converts the cell's coordinate from offset (x, y) space to
-        cube (q, r, s) coordinates to determine its six hexagonal neighbors.
-        Neighboring cells are then converted back to (x, y) coordinates and
-        filtered to ensure they are within grid bounds and not blocked by
-        obstacles.
-
-        A cell is considered a valid neighbor if:
-        - It lies within the grid boundaries.
-        - It does not contain an `Obstacle` agent.
+        This method generates the first “edges” from the drone's current location to
+        all hubs and the assigned drop zone. Each edge includes the estimated energy
+        cost to reach the target and the battery level the drone would have after
+        traveling that edge. Hubs allow for a partial recharge to ensure safe battery
+        levels for subsequent travel.
 
         Parameters
         ----------
-        cell : Cell
-            The cell for which neighboring cells are requested.
+        drone : Drone
+            The drone for which to initialize edges. Must have `drone.package` assigned.
+        start_cell : Cell
+            The current location of the drone.
+        drop_idx : int
+            The index of the assigned drop zone in the adjacency matrix (after all hubs).
+        safe_battery_level : int
+            Minimum battery the drone must have to proceed safely, used to filter edges
+            and for partial recharge calculations.
+
+        Returns
+        -------
+        list[tuple[int, float, float, Hub | Package]]
+            A list of tuples representing possible first moves:
+            - Index of the target node in the adjacency matrix (hub or drop zone)
+            - Battery level after traveling to that node (including partial recharge if a hub)
+            - Energy cost to reach that node
+            - The actual target object (`Hub` or `Package`)
+
+        Notes
+        -----
+        - Only the assigned drop zone for the drone’s package is considered; other drop
+          zones are ignored.
+        - Partial recharge at hubs restores enough battery to remain above `safe_battery_level`
+          and reach the nearest hub safely, but not full battery.
+        - Edges that would leave the drone below `safe_battery_level` are excluded.
+        - The returned edges serve as the initial nodes for the priority queue in
+          `_find_best_path`.
+        """
+
+        start_edges = []
+
+        # Edges to hubs
+        for hub_idx, hub in enumerate(self.hub_list):
+            path = self._direct_path(start_cell, hub.cell)
+            distance, ascent, descent = self._distance(path)
+            energy_cost = self._estimated_cost(drone, distance, ascent, descent)
+
+            # Battery left after moving to this hub
+            battery_left = drone.battery - energy_cost
+            if battery_left < safe_battery_level:
+                continue
+
+            # Partial recharge: enough to reach nearest hub safely
+            nearest_hub_energy = min(
+                self._estimated_cost(drone, *self.adjacency_matrix[hub_idx][h_idx])
+                for h_idx in range(len(self.hub_list))
+            )
+            battery_left = max(battery_left, safe_battery_level + nearest_hub_energy)
+
+            start_edges.append((hub_idx, battery_left, energy_cost, hub))
+
+        # Edge directly to drop zone
+        drop_cell = self.drop_zone_list[drop_idx - len(self.hub_list)].cell
+        path = self._direct_path(start_cell, drop_cell)
+        distance, ascent, descent = self._distance(path)
+        energy_cost = self._estimated_cost(drone, distance, ascent, descent)
+        battery_left = drone.battery - energy_cost
+        if battery_left >= safe_battery_level:
+            start_edges.append((drop_idx, battery_left, energy_cost, drone.package))
+
+        return start_edges
+
+    def _direct_path(self, start_cell: Cell, target_cell: Cell) -> list[Cell]:
+        """
+        Return the shortest path between two cells on the hex grid.
+
+        This method constructs the path directly by stepping from the start cell
+        toward the target cell without performing any search or pathfinding.
+        Since there are no obstacles, each step reduces the hex distance until
+        the target is reached.
+
+        - The path always exists if both cells are within grid bounds.
+        - Movement cost is uniform for all steps.
+        - The returned path includes both the start and target cells.
 
         Returns
         -------
         list[Cell]
-            A list of neighboring cells that are reachable from the given cell.
+            An ordered list of cells representing the path from the start cell
+            to the target cell.
         """
 
-        qrs = xy_to_qrs(cell.coordinate)
-        neighbors_qrs = hex_neighbors_qrs(qrs)
+        start_qrs = xy_to_qrs(start_cell.coordinate)
+        target_qrs = xy_to_qrs(target_cell.coordinate)
 
-        neighbors_xy = [qrs_to_xy(n) for n in neighbors_qrs]
+        path = [start_cell]
+        current_qrs = start_qrs
 
-        neighbors = []
-        for xy in neighbors_xy:
-            col, row = xy
-            neighbor_cell = None
-            if 0 <= col < self.model.grid.width and 0 <= row < self.model.grid.height:
-                neighbor_cell = self.coord_map[col, row]
-                neighbors.append(neighbor_cell)
+        while current_qrs != target_qrs:
+            current_qrs = step_towards(current_qrs, target_qrs, self.model.grid.width, self.model.grid.height)
+            xy = qrs_to_xy(current_qrs)
+            path.append(self.coord_map[xy])
 
-        return neighbors
+        return path
 
-    def _build_path(self, target: AStarCell) -> list[Cell]:
+    def _distance(self, path: list[Cell], hex_size: int = 2, safe_height: int = 10) -> tuple[int, float, float]:
         """
-        Reconstruct the path from the start cell to the target cell.
+        Calculate the total traversal distance for a given path.
 
-        This method follows the parent links of the given `AStarCell` from the
-        target back to the start, collecting the associated `Cell` objects.
-        The resulting path is returned in start-to-target order.
+        This method computes the distance required to traverse a path by combining
+        horizontal movement across hex cells with vertical movement due to elevation
+        changes. The maximum elevation along the path is used to determine the
+        required ascent and descent, with an additional safety margin applied.
 
-        Parameters
-        ----------
-        target : AStarCell
-            The target node reached by the A* search.
-
-        Returns
-        -------
-        list[Cell]
-            An ordered list of cells representing the path from the start
-            cell to the target cell.
-        """
-
-        current = target
-        path = []
-
-        while current.parent:
-            path.append(current.cell)
-            current = current.parent
-        path.append(current.cell)
-
-        return list(reversed(path))
-
-    def _cost(self, path: list[Cell], hex_size: int = 2, safe_height: int = 10) -> int:
-        """
-        Calculate the traversal cost of a path considering distance and elevation.
-
-        The cost is computed as the sum of:
-        1. The horizontal distance, proportional to the number of cells in the path
-           multiplied by the size of each hex (`hex_size`).
-        2. The vertical ascent needed to reach the maximum elevation along the path
-           plus a safety margin (`safe_height`) from the start.
-        3. The vertical descent needed to descend from the maximum elevation to
-           the target cell plus the safety margin.
+        - Horizontal distance is based on the number of cells in the path and the
+          configured hex size.
+        - Vertical distance includes ascent from the start to the highest elevation
+          along the path and descent from that elevation to the target.
+        - A safety height margin is added to both ascent and descent calculations.
 
         Parameters
         ----------
         path : list[Cell]
-            An ordered list of cells representing the path from start to target.
+            An ordered list of cells representing the path from the start cell to
+            the target cell.
         hex_size : int, optional
-            The horizontal distance cost per hex cell (default is 2).
+            The horizontal distance represented by a single hex cell.
         safe_height : int, optional
-            The safety margin added to ascent and descent calculations (default is 10).
+            An additional vertical safety margin applied to ascent and descent.
 
         Returns
         -------
-        int
-            The total cost of traversing the path considering distance and elevation.
+        tuple[int, float, float]
+            A tuple containing:
+            - The total traversal distance.
+            - The total ascent distance.
+            - The total descent distance.
 
         Notes
         -----
-        - Elevation values are obtained from `self.model.get_elevation(cell.coordinate)`.
-        - The method assumes the path contains at least one cell.
+        - Elevation values are obtained using `self.model.get_elevation(cell.coordinate)`.
+        - The path is assumed to contain at least one cell.
         """
 
         max_elevation = 0
@@ -276,7 +395,45 @@ class GraphBased(Strategy):
         ascent_height = max_elevation + safe_height - start_elevation
         descent_height = max_elevation + safe_height - target_elevation
 
-        return len(path) * hex_size + ascent_height + descent_height
+        return len(path) * hex_size, ascent_height, descent_height
+
+    def _estimated_cost(self, drone: Drone, distance: int, ascent_height: float, descent_height: float, estimated_average_speed: float = 12.0) -> float:
+        """
+        Estimate the energy cost for a drone to traverse a path.
+
+        This method calculates the estimated total energy consumption required for a drone
+        to complete a path by combining the estimated costs of horizontal travel,
+        vertical ascent, and vertical descent. Each component is evaluated using
+        the drone’s energy model.
+
+        - Horizontal cost is based on the total distance and an estimated average speed.
+        - Ascent cost accounts for the energy required to gain altitude.
+        - Descent cost accounts for the energy required to lose altitude.
+
+        Parameters
+        ----------
+        drone : Drone
+            The drone for which the energy cost is being estimated.
+        distance : int
+            The total horizontal distance of the path.
+        ascent_height : float
+            The total vertical ascent required along the path.
+        descent_height : float
+            The total vertical descent required along the path.
+        estimated_average_speed : float, optional
+            The assumed average horizontal speed used for the estimation.
+
+        Returns
+        -------
+        float
+            The estimated total energy cost required to traverse the path.
+        """
+
+        cost_horizontal = drone.calculate_energy_drain(estimated_average_speed, 0, distance)
+        cost_ascent = drone.calculate_energy_drain(0, ascent_height, 0)
+        cost_descent = drone.calculate_energy_drain(0, -descent_height, 0)
+
+        return cost_horizontal + cost_ascent + cost_descent
 
     def _build_coord_map(self) -> None:
         """
@@ -296,77 +453,3 @@ class GraphBased(Strategy):
         """
 
         self.coord_map = {c.coordinate: c for c in self.model.grid.all_cells}
-
-class AStarCell:
-    """
-    Represents a node in the A* pathfinding algorithm.
-
-    Each `AStarCell` wraps a grid `Cell` and stores the scores used by
-    the A* algorithm for pathfinding:
-
-    - `g_score`: Cost from the start node to this node.
-    - `h_score`: Heuristic estimate of cost from this node to the target.
-    - `f_score`: Sum of `g_score` and `h_score` (used for priority in a queue).
-
-    Attributes
-    ----------
-    cell : Cell
-        The grid cell associated with this A* node.
-    g_score : int
-        Cost from the start cell to this cell.
-    h_score : int
-        Estimated cost from this cell to the target.
-    parent : Optional[AStarCell]
-        The previous node in the path (used to reconstruct the path).
-    """
-
-    def __init__(self, cell: Cell, g_score: int, h_score: int, parent: Optional["AStarCell"]):
-        """
-        Initialize an A* node with scores and a parent link.
-
-        Parameters
-        ----------
-        cell : Cell
-            The grid cell this node represents.
-        g_score : int
-            Cost from the start cell to this node.
-        h_score : int
-            Estimated cost from this node to the target.
-        parent : Optional[AStarCell]
-            The parent node in the path (None if this is the start node).
-        """
-        self.cell = cell
-        self.g_score = g_score
-        self.h_score = h_score
-        self.parent = parent
-
-    @property
-    def f_score(self) -> int:
-        """
-        Total estimated cost (g_score + h_score) for A* pathfinding.
-
-        Returns
-        -------
-        int
-            Sum of g_score and h_score.
-        """
-        return self.g_score + self.h_score
-
-    def __lt__(self, other: "AStarCell") -> bool:
-        """
-        Comparison operator for priority queue sorting.
-
-        Nodes are compared by their f_score, allowing use in a min-heap
-        or priority queue for efficient A* pathfinding.
-
-        Parameters
-        ----------
-        other : AStarCell
-            Another node to compare against.
-
-        Returns
-        -------
-        bool
-            True if this node's f_score is less than the other node's f_score.
-        """
-        return self.f_score < other.f_score

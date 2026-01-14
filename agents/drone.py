@@ -357,7 +357,10 @@ class Drone(CellAgent):
             mass += self.package.weight
         distance = hex_distance * hex_size
 
-        E_horizontal = ((self.a * mass ** 1.5) / horizontal_speed + self.b * horizontal_speed ** 2) * distance
+        if horizontal_speed == 0:
+            E_horizontal = 0
+        else:
+            E_horizontal = ((self.a * mass ** 1.5) / horizontal_speed + self.b * horizontal_speed ** 2) * distance
         E_ascent = (mass * self.g * max(0, altitude_change)) / self.model.drone_stats.drone_climb_efficiency
         E_descent = mass * self.g * max(0, -altitude_change) * self.model.drone_stats.drone_descent_factor
 

@@ -26,7 +26,25 @@ def qrs_hex_distance(qrs1: tuple[int, int, int], qrs2: tuple[int, int, int]) -> 
     q2, r2, s2 = qrs2
     return max(abs(q1-q2), abs(r1-r2), abs(s1-s2))
 
-def hex_neighbors_qrs(qrs: tuple[int, int, int]) -> list[tuple[int, int, int]]:
+def hex_neighbors_qrs(qrs: tuple[int, int, int], grid_width: int, grid_height: int) -> list[tuple[int, int, int]]:
+    """
+    Return all neighboring cube coordinates that stay within grid boundaries.
+
+    Parameters
+    ----------
+    qrs : tuple[int, int, int]
+        The cube coordinate (q, r, s) of the current cell.
+    grid_width : int
+        Width of the grid (number of columns).
+    grid_height : int
+        Height of the grid (number of rows).
+
+    Returns
+    -------
+    list[tuple[int, int, int]]
+        Cube coordinates of neighboring cells that are within the grid.
+    """
+
     hex_directions = (
         (1, -1, 0),
         (1, 0, -1),
@@ -36,8 +54,16 @@ def hex_neighbors_qrs(qrs: tuple[int, int, int]) -> list[tuple[int, int, int]]:
         (0, -1, 1),
     )
 
+    neighbors = []
     q, r, s = qrs
-    return [(q + dq, r + dr, s + ds) for dq, dr, ds in hex_directions]
+
+    for dq, dr, ds in hex_directions:
+        neighbor = (q + dq, r + dr, s + ds)
+        x, y = qrs_to_xy(neighbor)
+        if 0 <= x < grid_width and 0 <= y < grid_height:
+            neighbors.append(neighbor)
+
+    return neighbors
 
 def xy_to_qrs(col: int | tuple[int, int], row: int | None = None) -> tuple[int, int, int]:
     """ Converts Cartesian coordinates to cubic coordinates for hex grid calculations
@@ -63,6 +89,46 @@ def qrs_to_xy(q: int | tuple[int, int, int], r: int | None = None, s: int | None
     col = q + (r + (r & 1)) // 2
     row = r
     return (col, row)
+
+def cube_distance(a, b):
+    return max(abs(a[0]-b[0]), abs(a[1]-b[1]), abs(a[2]-b[2]))
+
+def step_towards(current: tuple[int, int, int],
+                  target: tuple[int, int, int],
+                  width: int,
+                  height: int) -> tuple[int, int, int]:
+    """
+    Move one step toward a target cell on a hex grid within grid boundaries.
+
+    This method selects a neighboring hex cell that minimizes the distance
+    to the target while ensuring the step stays within the grid limits.
+    It uses `hex_neighbors_qrs` to obtain all valid neighbors for the current cell.
+
+    - Exactly one hex step is taken per call.
+    - The returned coordinate is always closer to the target than the input,
+      unless no valid neighbors exist (e.g., at the edge of the grid).
+
+    Parameters
+    ----------
+    current : tuple[int, int, int]
+        The current cube-coordinate (q, r, s) of the cell.
+    target : tuple[int, int, int]
+        The cube-coordinate (q, r, s) of the target cell.
+    width : int
+        The width of the grid (number of columns).
+    height : int
+        The height of the grid (number of rows).
+
+    Returns
+    -------
+    tuple[int, int, int]
+        The cube coordinate of the next step along the shortest path toward
+        the target, clipped to the grid boundaries.
+    """
+
+    neighbors = hex_neighbors_qrs(current, width, height)
+    best = min(neighbors, key=lambda n: cube_distance(n, target))
+    return best
 
 def hex_vector(cell1: Cell, cell2: Cell) -> tuple[int, int, int]:
     """Computes the vector between two hex cells.
