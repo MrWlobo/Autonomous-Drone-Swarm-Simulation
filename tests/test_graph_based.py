@@ -46,14 +46,6 @@ def GraphBasedInstance():
             "max": 50,
             "step": 1,
         },
-        "num_obstacles": {
-            "type": "SliderInt",
-            "value": 500,
-            "label": "Number of Obstacles",
-            "min": 0,
-            "max": 500,
-            "step": 1,
-        },
         "num_hubs": {
             "type": "SliderInt",
             "value": 10,
@@ -86,14 +78,6 @@ def GraphBasedInstance():
             "max": 100,
             "step": 1,
         },
-        "drain_rate": {
-            "type": "SliderInt",
-            "value": 1,
-            "label": "Drone Battery Drain Rate",
-            "min": 0,
-            "max": 5,
-            "step": 1,
-        },
         "show_gridlines": {
             "type": "Checkbox",
             "value": False,
@@ -110,12 +94,10 @@ def GraphBasedInstance():
     num_drones=model_params["num_drones"]["value"],
     num_packages=model_params["num_packages"]["value"],
     num_hubs=model_params["num_hubs"]["value"],
-    num_obstacles=model_params["num_obstacles"]["value"],
     algorithm_name=model_params["algorithm_name"]["value"],
     initial_state_setter_name=model_params["initial_state_setter_name"]["value"],
     drone_speed=model_params["drone_speed"]["value"],
     drone_acceleration=model_params["drone_acceleration"]["value"],
-    drone_battery=model_params["drone_battery"]["value"],
     simulator=simulator,
     show_gridlines=model_params["show_gridlines"]["value"],
     )
@@ -126,7 +108,6 @@ def GraphBasedInstance():
 
 def test__create_adjacency_matrix_size(GraphBasedInstance):
     GraphBasedInstance._create_adjacency_matrix()
-    print(GraphBasedInstance.adjacency_matrix)
     assert len(GraphBasedInstance.adjacency_matrix) == len(GraphBasedInstance.model.get_hubs()), "Number of rows should be equal to the number of hubs."
     assert len(GraphBasedInstance.adjacency_matrix[0]) == len(GraphBasedInstance.model.get_packages()) + len(GraphBasedInstance.model.get_hubs()), "Number of columns should be equal to the sum of the numbers of hubs and packages."
 
