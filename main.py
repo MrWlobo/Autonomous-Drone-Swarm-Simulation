@@ -6,11 +6,15 @@ from model.model import DroneModel
 from visualization.viz import VisualizationComponent, Layout # pylint: disable=unused-import # noqa: F401 
 
 # Create individual plot components
-plot_active_drones = make_plot_component(["Active Drones"])
-plot_collisions = make_plot_component(["Collisions(%)"])
-plot_completed_deliveries = make_plot_component(["Completed Deliveries"])
-plot_avg_delivery_time = make_plot_component(["Avg Delivery Time"])
-plot_altitude = make_plot_component(["Min Altitude", "Mean Altitude", "Max Altitude"])
+plot_active_drones = make_plot_component(["Total Drones", "Active Drones", "Collisions"],
+                                         post_process=lambda ax: ax.set_ylim(bottom=0))
+plot_completed_deliveries = make_plot_component(["Completed Deliveries"],
+                                                post_process=lambda ax: ax.set_ylim(bottom=0))
+plot_avg_delivery_time = make_plot_component(["Avg Delivery Time",
+                                              "Deliveries Per Minute"],
+                                             post_process=lambda ax: ax.set_ylim(bottom=0))
+plot_altitude = make_plot_component(["Min Altitude", "Mean Altitude", "Max Altitude"],
+                                    post_process=lambda ax: ax.set_ylim(bottom=0))
 
 @solara.component
 def PlotsComponent(model: DroneModel):
@@ -24,8 +28,6 @@ def PlotsComponent(model: DroneModel):
     with solara.Column():
         if model.show_active_drones_plot:
             render(plot_active_drones)
-        if model.show_collisions_plot:
-            render(plot_collisions)
         if model.show_completed_deliveries_plot:
             render(plot_completed_deliveries)
         if model.show_avg_delivery_time_plot:
@@ -67,7 +69,7 @@ model_params = {
         "value": 4,
         "label": "Number of Packages",
         "min": 1,
-        "max": 50,
+        "max": 500,
         "step": 1,
     },
     "num_hubs": {
@@ -120,11 +122,6 @@ model_params = {
         "value": False,
         "label": "Show Active Drones Plot",
     },
-    "show_collisions_plot": {
-        "type": "Checkbox",
-        "value": False,
-        "label": "Show Collisions Plot",
-    },
     "show_completed_deliveries_plot": {
         "type": "Checkbox",
         "value": False,
@@ -161,7 +158,6 @@ initial_model = DroneModel(
     save_every=model_params["save_every"]["value"],
     # Map the boolean params to the model attributes
     show_active_drones_plot=model_params["show_active_drones_plot"]["value"],
-    show_collisions_plot=model_params["show_collisions_plot"]["value"],
     show_completed_deliveries_plot=model_params["show_completed_deliveries_plot"]["value"],
     show_avg_delivery_time_plot=model_params["show_avg_delivery_time_plot"]["value"],
     show_altitude_plot=model_params["show_altitude_plot"]["value"],

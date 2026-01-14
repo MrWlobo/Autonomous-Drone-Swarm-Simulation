@@ -76,16 +76,37 @@ class Hangzhou35806InitialStateSetter(InitialStateSetter):
             packages.append(p)
         Hub.package_requests = packages
 
-        drones = []
-        for _ in range(model.num_drones):
-            cell = available_cells.pop()
-            d = Drone(model, cell=cell)
-            
-            drones.append(d)   
-        
         hubs = []
         for _ in range(model.num_hubs):
             cell = available_cells.pop()
             h = Hub(model, cell=cell)
             
             hubs.append(h)
+
+        drones = []
+        for _ in range(model.num_drones):
+            cell = available_cells.pop()
+            d = Drone(model, cell=cell)
+            
+            drones.append(d)
+
+        hub_cap = sum(h.capacity for h in hubs)
+        available_hubs = list(hubs)
+        can_insert = min(len(drones), hub_cap)
+        while can_insert:
+            for h in available_hubs:
+                if not h.is_full() and can_insert:
+                    drone = drones.pop()
+                    h.stored_drones.append(drone)
+                    drone.cell = None
+                    can_insert -= 1
+                
+
+
+
+        
+        
+        
+
+        
+        

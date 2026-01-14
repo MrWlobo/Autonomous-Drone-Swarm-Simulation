@@ -89,10 +89,11 @@ class Drone(CellAgent):
             self.destroy()
 
         elif action == DroneAction.ASCENT:
+            self.change_altitude(target)
             pass
 
         elif action == DroneAction.DESCENT:
-            pass
+            self.change_altitude(target)
 
         if action != DroneAction.REST:
             pass
@@ -311,6 +312,9 @@ class Drone(CellAgent):
             self.package.deliver()
             self.package = None     # Don't delete package, its stored as completed in model
 
+    def get_altitude_above_ground(self):
+        return self.altitude - self.model.get_elevation(self.cell.coordinate) - (self.package.height if self.package else 0)
+
     def check_for_collision_with_drone(self, other: Drone) -> bool:
         if self.altitude > other.altitude:
             higher_drone_bottom = self.altitude - (self.package.height if self.package else 0)
@@ -340,12 +344,12 @@ class Drone(CellAgent):
         Function for changing altitude towards wanted one.
         :param altitude: desired altitude (above ground)
         """
-        altitude_change = altitude + self.model.get_elevation(self.cell.coordinate) - self.altitude 
+        altitude_change = altitude - (self.altitude - self.model.get_elevation(self.cell.coordinate) - (self.package.height if self.package else 0) )
         if altitude_change > 0:
             altitude_change = min(altitude_change, self.max_ascent_speed)
         else:
             altitude_change = max(altitude_change, -self.max_descent_speed)
-        self.altitude = altitude + altitude_change
+        self.altitude += altitude_change
 
     def calculate_energy_drain(self, horizontal_speed, altitude_change, hex_distance: int, hex_size: int =2 ):
         mass = self.model.drone_stats.drone_mass

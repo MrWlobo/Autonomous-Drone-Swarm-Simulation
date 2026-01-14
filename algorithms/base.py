@@ -16,8 +16,8 @@ class DroneAction(Enum):
     WAIT = auto()            # Target: None
     DESTROY = auto()         # Target: None
     REST = auto()            # Target: None
-    ASCENT = auto()          # Target: None
-    DESCENT = auto()         # Target: Cell elevation (+ package height if there is one in the cell)
+    ASCENT = auto()          # Target: Target altitude above ground
+    DESCENT = auto()         # Target: Target altitude above ground
 
 class HubAction(Enum):
     """The set of low-level commands a hub can execute."""

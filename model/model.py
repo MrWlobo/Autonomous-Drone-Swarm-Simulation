@@ -41,6 +41,12 @@ def compute_avg_delivery_time(model: DroneModel):
         return 0
     return total_duration / valid_packages
 
+def compute_avg_delivery_time_minutes(model: DroneModel):
+    return compute_avg_delivery_time(model)/60
+
+def compute_deliveries_per_minute(model: DroneModel):
+    return len(model.completed_deliveries)/model.steps*60
+
 def compute_collision_percentage(model: DroneModel):
     """Calculates the cumulative percentage of drones that have collided."""
     active = len(model.get_drones())
@@ -69,6 +75,9 @@ def compute_mean_altitude(model: DroneModel):
 def compute_max_altitude(model: DroneModel):
     agls = _get_drone_agls(model)
     return max(agls) if agls else 0
+
+def compute_active_drones(model: DroneModel):
+    return sum(1 for d in model.get_drones() if d.cell is not None)
 
 
 class DroneStats:
@@ -229,13 +238,16 @@ class DroneModel(Model):
         
         self.datacollector = DataCollector(
             model_reporters={
-                "Active Drones": lambda m: len(m.get_drones()),
-                "Collisions(%)": compute_collision_percentage,
+                "Total Drones": lambda m: len(m.get_drones()),
+                "Active Drones": compute_active_drones,
+                "Collisions": lambda m: m.total_dead_drones,
                 "Completed Deliveries": lambda m: len(m.completed_deliveries),
                 "Avg Delivery Time": compute_avg_delivery_time,
+                "Deliveries Per Minute": compute_deliveries_per_minute,
                 "Min Altitude": compute_min_altitude,
                 "Mean Altitude": compute_mean_altitude,
                 "Max Altitude": compute_max_altitude,
+                
             }
         )
 
@@ -279,9 +291,8 @@ class DroneModel(Model):
                 drone_speed = divide_hex_vector(drone.cur_speed_vec, num_check)
 
                 for _ in range(num_check + 1):
-                    if qrs_hex_distance(drone_last_pos, second_drone_last_pos) <= 2:
+                    if qrs_hex_distance(drone_last_pos, second_drone_last_pos) <= 2 and drone.check_for_collision_with_drone(second_drone):
                         x,y = qrs_to_xy(round_hex_vector(drone_last_pos))
-                        # print(x,y)
                         cell = self.grid[(x,y)]
                         collision_cells.append(cell)
                         
