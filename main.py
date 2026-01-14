@@ -72,6 +72,14 @@ model_params = {
         "max": 500,
         "step": 1,
     },
+    "num_package_clusters": {
+        "type": "SliderInt",
+        "value": 5,
+        "label": "Number of Package Clusters",
+        "min": 1,
+        "max": 500,
+        "step": 1,
+    },
     "num_hubs": {
         "type": "SliderInt",
         "value": 1,
@@ -147,6 +155,7 @@ initial_model = DroneModel(
     preset_name=model_params["preset_name"]["value"],
     num_drones=model_params["num_drones"]["value"],
     num_packages=model_params["num_packages"]["value"],
+    num_package_clusters=model_params["num_package_clusters"]["value"],
     num_hubs=model_params["num_hubs"]["value"],
     algorithm_name=model_params["algorithm_name"]["value"],
     initial_state_setter_name=model_params["initial_state_setter_name"]["value"], 

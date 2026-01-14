@@ -68,12 +68,20 @@ class Shanghai56909InitialStateSetter(InitialStateSetter):
         model.random.shuffle(available_cells)
         
         # for now, agents other than drop zones are placed randomly 
+        num_package_clusters = model.num_package_clusters
+        package_spawn_cells = []
+
+        for _ in range(num_package_clusters):
+            if available_cells:
+                package_spawn_cells.append(available_cells.pop())
+
         packages = []
         for i in range(model.num_packages):
-            cell = available_cells.pop()
-            p = Package(model, cell, 0.5, 2, drop_zones[i % len(drop_zones)])
+            spawn_cell = package_spawn_cells[i % len(package_spawn_cells)]
             
+            p = Package(model, spawn_cell, 0.5, 2, drop_zones[i % len(drop_zones)])
             packages.append(p)
+        Hub.package_requests = packages
 
         drones = []
         for _ in range(model.num_drones):

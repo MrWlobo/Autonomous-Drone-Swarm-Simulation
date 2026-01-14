@@ -128,6 +128,7 @@ class DroneModel(Model):
             height: int = 50,
             num_drones: int = 2,
             num_packages: int = 4,
+            num_package_clusters: int = 5,
             num_hubs: int = 5,
             num_obstacles: int = 0,
             initial_state_setter_name: str = "random",
@@ -202,6 +203,7 @@ class DroneModel(Model):
         )
         self.num_drones = num_drones
         self.num_packages = num_packages
+        self.num_package_clusters = num_package_clusters
         self.num_hubs = num_hubs
         self.num_obstacles = num_obstacles
 
