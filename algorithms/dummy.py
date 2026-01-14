@@ -18,7 +18,6 @@ class Dummy(Strategy):
     Hub Logic:
     1. Collect any idle drones currently at the hub location.
     2. If there are stored drones and global package requests, deploy a drone.
-    3. Randomly generate new delivery requests if the queue is low.
     
     Drone Logic:
     1. If carrying a package -> Move to DropZone -> Dropoff.
@@ -28,12 +27,17 @@ class Dummy(Strategy):
 
     def __init__(self, model: DroneModel) -> None:
         self.model = model
-        
-        packages = model.get_packages()
-        drones = model.get_drones()
-        for i, package in enumerate(packages):
-            drone_index = i % len(drones)
-            drones[drone_index].add_package(package)
+        self.assignments_done = False
+    
+    def step(self):
+        if not self.assignments_done:
+            packages = self.model.get_packages()
+            drones = self.model.get_drones()
+            for i, package in enumerate(packages):
+                drone_index = i % len(drones)
+                drones[drone_index].add_package(package)
+                
+            self.assignments_done = True
 
     def register_drone(self, drone: Drone):
         """No specific initialization needed for dummy strategy."""
