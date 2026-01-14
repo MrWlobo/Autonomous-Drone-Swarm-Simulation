@@ -90,6 +90,7 @@ class Hangzhou35806InitialStateSetter(InitialStateSetter):
             
             drones.append(d)
 
+        # Place drones in hubs if possible
         hub_cap = sum(h.capacity for h in hubs)
         available_hubs = list(hubs)
         can_insert = min(len(drones), hub_cap)
