@@ -134,3 +134,131 @@ def test_find_best_path_does_not_crash(GraphBasedInstance):
     print(path)
     print(type(path))
     assert isinstance(path, list)
+
+def test_find_best_path_structure(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+
+    for entry in path:
+        assert isinstance(entry, tuple), f"Path entry {entry} is not a tuple"
+        assert len(entry) == 2, f"Path entry {entry} does not have 2 elements"
+        node, battery = entry
+        assert battery >= 0, f"Battery value {battery} is negative"
+        assert hasattr(node, "cell"), f"Node {node} has no cell attribute"
+
+def test_delivery_implies_return(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+
+    if not path:
+        pytest.skip("No feasible path found")
+
+    # Last node must be a hub
+    last_node, _ = path[-1]
+    assert last_node in GraphBasedInstance.model.get_hubs(), \
+        f"Last node {last_node} is not a hub"
+
+    # Drone package appears at most once
+    drop_count = sum(1 for node, _ in path if node is drone.package)
+    assert drop_count <= 1, f"Package appears {drop_count} times in path"
+
+def test_hub_recharge(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+
+    for (node, battery), (next_node, next_battery) in zip(path, path[1:]):
+        if node in GraphBasedInstance.model.get_hubs():
+            assert next_battery >= battery, f"Battery did not increase at hub {node}"
+        else:
+            assert next_battery <= battery, f"Battery increased outside hub at {node}"
+
+def test_battery_never_drops_below_safe(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+    if not path:
+        pytest.skip("No feasible path found")
+
+    safe_level = GraphBasedInstance.model.drone_stats.drone_safe_battery_level
+
+    for node, battery in filter(lambda x: x[1] != 0, path):
+        assert battery >= safe_level, f"Battery below safe level at {node}: {battery}"
+
+def test_no_path_when_package_unreachable(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    # Artificially set drone battery to very low
+    drone.battery = 1
+
+    path = GraphBasedInstance._find_best_path(drone)
+    assert path == [], "Path should be empty if drone cannot reach drop zone safely"
+
+def test_path_ends_at_nearest_hub(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+    hubs = list(GraphBasedInstance.model.get_hubs())
+
+    if not drones or not packages or not hubs:
+        pytest.skip("No drones, packages, or hubs")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+    if not path:
+        pytest.skip("No feasible path found")
+
+    last_node, _ = path[-1]
+    drop_idx = len(GraphBasedInstance.hub_list) + GraphBasedInstance.drop_zone_list.index(drone.package.drop_zone)
+
+    min_cost_idx = min(
+        range(len(GraphBasedInstance.hub_list)),
+        key=lambda h_idx: GraphBasedInstance._estimated_cost(drone, *GraphBasedInstance.adjacency_matrix[drop_idx][h_idx])
+    )
+
+    assert last_node == GraphBasedInstance.hub_list[min_cost_idx], \
+        f"Last node {last_node} is not the minimal energy hub according to adjacency matrix"

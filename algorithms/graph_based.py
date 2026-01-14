@@ -122,6 +122,46 @@ class GraphBased(Strategy):
         self.adjacency_matrix = adj_mat
 
     def _find_best_path(self, drone: Drone):
+        """
+        Compute the best energy-feasible path for a drone to deliver its assigned package.
+
+        The path starts at the drone's current location, visits the assigned drop zone,
+        and ends at the hub that is most energy-efficient to reach from the drop zone.
+        Intermediate hubs may be visited for partial recharges if needed.
+
+        The algorithm uses a Dijkstra-like search over the adjacency matrix of hubs
+        and drop zones, where edge weights represent estimated energy costs for the drone
+        to traverse between points. Hubs allow partial recharges to ensure the drone's
+        battery remains above the safe threshold.
+
+        Parameters
+        ----------
+        drone : Drone
+            The drone for which to compute the delivery path. Must have `drone.package`
+            assigned.
+
+        Returns
+        -------
+        list[tuple[Hub | DropZone, float]]
+            An ordered list of tuples representing the nodes in the path and the drone's
+            battery level after reaching each node. The list includes:
+            - The starting node (implicitly the drone's current location),
+            - Any intermediate hubs used for partial recharges,
+            - The assigned drop zone,
+            - The final hub after completing the delivery.
+
+            If no feasible path exists (battery insufficient to reach drop zone or a hub safely),
+            returns an empty list.
+
+        Notes
+        -----
+        - Only the assigned drop zone for the drone's package will be visited; other
+          drop zones are ignored.
+        - Partial recharge at hubs only restores enough battery to stay above the safe
+          threshold and reach the next hub, not a full recharge.
+        - The adjacency matrix used for energy calculations must include both hubs and
+          drop zones as nodes.
+        """
 
         if not drone.package:
             return []
@@ -131,8 +171,6 @@ class GraphBased(Strategy):
         safe_battery_level = (self.model.drone_stats.drone_safe_battery_level * self.model.drone_stats.drone_battery) // 100
 
         start_edges = self._initialize_start_edges(drone, start_cell, drop_idx, safe_battery_level)
-
-
 
         # Initialize priority queue
         heap = []
@@ -199,7 +237,47 @@ class GraphBased(Strategy):
         return []
 
     def _initialize_start_edges(self, drone: Drone, start_cell: Cell, drop_idx: int, safe_battery_level: int):
-        # Build initial edges from current cell to all hubs + direct drop zone
+        """
+        Build the initial set of edges for a drone's pathfinding search.
+
+        This method generates the first “edges” from the drone's current location to
+        all hubs and the assigned drop zone. Each edge includes the estimated energy
+        cost to reach the target and the battery level the drone would have after
+        traveling that edge. Hubs allow for a partial recharge to ensure safe battery
+        levels for subsequent travel.
+
+        Parameters
+        ----------
+        drone : Drone
+            The drone for which to initialize edges. Must have `drone.package` assigned.
+        start_cell : Cell
+            The current location of the drone.
+        drop_idx : int
+            The index of the assigned drop zone in the adjacency matrix (after all hubs).
+        safe_battery_level : int
+            Minimum battery the drone must have to proceed safely, used to filter edges
+            and for partial recharge calculations.
+
+        Returns
+        -------
+        list[tuple[int, float, float, Hub | Package]]
+            A list of tuples representing possible first moves:
+            - Index of the target node in the adjacency matrix (hub or drop zone)
+            - Battery level after traveling to that node (including partial recharge if a hub)
+            - Energy cost to reach that node
+            - The actual target object (`Hub` or `Package`)
+
+        Notes
+        -----
+        - Only the assigned drop zone for the drone’s package is considered; other drop
+          zones are ignored.
+        - Partial recharge at hubs restores enough battery to remain above `safe_battery_level`
+          and reach the nearest hub safely, but not full battery.
+        - Edges that would leave the drone below `safe_battery_level` are excluded.
+        - The returned edges serve as the initial nodes for the priority queue in
+          `_find_best_path`.
+        """
+
         start_edges = []
 
         # Edges to hubs
