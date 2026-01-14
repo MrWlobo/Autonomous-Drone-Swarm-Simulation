@@ -64,6 +64,43 @@ def qrs_to_xy(q: int | tuple[int, int, int], r: int | None = None, s: int | None
     row = r
     return (col, row)
 
+def step_towards(current: tuple[int, int, int],
+                  target: tuple[int, int, int]) -> tuple[int, int, int]:
+    """
+    Move one step in cube-coordinate space toward a target coordinate.
+
+    This method selects the cube-axis direction that most reduces the
+    distance to the target and returns the resulting coordinate. It is
+    used to incrementally construct a shortest path on a hex grid.
+
+    - Exactly one hex step is taken per call.
+    - The returned coordinate is always closer to the target than the input.
+
+    Returns
+    -------
+    tuple[int, int, int]
+        The next cube coordinate along the shortest path.
+    """
+
+    cq, cr, cs = current
+    tq, tr, ts = target
+
+    dq = tq - cq
+    dr = tr - cr
+    ds = ts - cs
+
+    if abs(dq) >= abs(dr) and abs(dq) >= abs(ds):
+        cq += 1 if dq > 0 else -1
+        cr -= 1 if dq > 0 else -1
+    elif abs(dr) >= abs(ds):
+        cr += 1 if dr > 0 else -1
+        cs -= 1 if dr > 0 else -1
+    else:
+        cs += 1 if ds > 0 else -1
+        cq -= 1 if ds > 0 else -1
+
+    return cq, cr, cs
+
 def hex_vector(cell1: Cell, cell2: Cell) -> tuple[int, int, int]:
     """Computes the vector between two hex cells.
     Returns:

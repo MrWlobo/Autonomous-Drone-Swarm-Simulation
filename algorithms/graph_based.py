@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import heapq
-from typing import TYPE_CHECKING, Optional, Callable
+from typing import TYPE_CHECKING
 
 from agents.drop_zone import DropZone
 from agents.package import Package
@@ -11,7 +10,6 @@ from agents.drone import Drone
 from agents.hub import Hub
 from agents.collision import Collision
 from utils.distance import *
-from utils.agent_utils import get_closest_available_hub
 
 if TYPE_CHECKING:
     from model.model import DroneModel
@@ -80,22 +78,22 @@ class GraphBased(Strategy):
 
     def _create_adjacency_matrix(self) -> None:
         """
-        Create and initialize the adjacency matrix for hubs and packages.
+        Return the shortest path between two cells on the hex grid.
 
-        This method first builds the internal coordinate map, then constructs
-        an adjacency matrix representing relationships between hubs and packages.
-        The matrix has one row per hub and one column per hub and package combined.
+        This method constructs the path directly by stepping from the start cell
+        toward the target cell without performing any search or pathfinding.
+        Since there are no obstacles, each step reduces the hex distance until
+        the target is reached.
 
-        - Rows correspond to hubs.
-        - Columns correspond to hubs followed by packages.
-        - All values are initialized to 0.
-
-        The resulting matrix is stored in `self.adjacency_matrix`.
+        - The path always exists if both cells are within grid bounds.
+        - Movement cost is uniform for all steps.
+        - The returned path includes both the start and target cells.
 
         Returns
         -------
-        None
-            This method modifies internal state but does not return a value.
+        list[Cell]
+            An ordered list of cells representing the path from the start cell
+            to the target cell.
         """
 
         self._build_coord_map()
@@ -105,7 +103,24 @@ class GraphBased(Strategy):
         adj_mat = [[0 for _ in range(hub_count + package_count)] for _ in range(hub_count)]
         self.adjacency_matrix = adj_mat
 
+    def _direct_path(self, start_cell: Cell, target_cell: Cell) -> list[Cell]:
+        """
+        Return the shortest path between two cells on a hex grid
+        assuming there are no obstacles.
+        """
 
+        start_qrs = xy_to_qrs(start_cell.coordinate)
+        target_qrs = xy_to_qrs(target_cell.coordinate)
+
+        path = [start_cell]
+        current_qrs = start_qrs
+
+        while current_qrs != target_qrs:
+            current_qrs = step_towards(current_qrs, target_qrs)
+            xy = qrs_to_xy(current_qrs)
+            path.append(self.coord_map[xy])
+
+        return path
 
     def _cost(self, path: list[Cell], hex_size: int = 2, safe_height: int = 10) -> int:
         """
@@ -171,77 +186,3 @@ class GraphBased(Strategy):
         """
 
         self.coord_map = {c.coordinate: c for c in self.model.grid.all_cells}
-
-class AStarCell:
-    """
-    Represents a node in the A* pathfinding algorithm.
-
-    Each `AStarCell` wraps a grid `Cell` and stores the scores used by
-    the A* algorithm for pathfinding:
-
-    - `g_score`: Cost from the start node to this node.
-    - `h_score`: Heuristic estimate of cost from this node to the target.
-    - `f_score`: Sum of `g_score` and `h_score` (used for priority in a queue).
-
-    Attributes
-    ----------
-    cell : Cell
-        The grid cell associated with this A* node.
-    g_score : int
-        Cost from the start cell to this cell.
-    h_score : int
-        Estimated cost from this cell to the target.
-    parent : Optional[AStarCell]
-        The previous node in the path (used to reconstruct the path).
-    """
-
-    def __init__(self, cell: Cell, g_score: int, h_score: int, parent: Optional["AStarCell"]):
-        """
-        Initialize an A* node with scores and a parent link.
-
-        Parameters
-        ----------
-        cell : Cell
-            The grid cell this node represents.
-        g_score : int
-            Cost from the start cell to this node.
-        h_score : int
-            Estimated cost from this node to the target.
-        parent : Optional[AStarCell]
-            The parent node in the path (None if this is the start node).
-        """
-        self.cell = cell
-        self.g_score = g_score
-        self.h_score = h_score
-        self.parent = parent
-
-    @property
-    def f_score(self) -> int:
-        """
-        Total estimated cost (g_score + h_score) for A* pathfinding.
-
-        Returns
-        -------
-        int
-            Sum of g_score and h_score.
-        """
-        return self.g_score + self.h_score
-
-    def __lt__(self, other: "AStarCell") -> bool:
-        """
-        Comparison operator for priority queue sorting.
-
-        Nodes are compared by their f_score, allowing use in a min-heap
-        or priority queue for efficient A* pathfinding.
-
-        Parameters
-        ----------
-        other : AStarCell
-            Another node to compare against.
-
-        Returns
-        -------
-        bool
-            True if this node's f_score is less than the other node's f_score.
-        """
-        return self.f_score < other.f_score
