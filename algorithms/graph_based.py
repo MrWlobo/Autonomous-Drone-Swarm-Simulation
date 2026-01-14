@@ -78,6 +78,33 @@ class GraphBased(Strategy):
 
     def _create_adjacency_matrix(self) -> None:
         """
+        Create and initialize the adjacency matrix for hubs and packages.
+
+        This method first builds the internal coordinate map, then constructs
+        an adjacency matrix representing relationships between hubs and packages.
+        The matrix has one row per hub and one column per hub and package combined.
+
+        - Rows correspond to hubs.
+        - Columns correspond to hubs followed by packages.
+        - All values are initialized to 0.
+
+        The resulting matrix is stored in `self.adjacency_matrix`.
+
+        Returns
+        -------
+        None
+            This method modifies internal state but does not return a value.
+        """
+
+        self._build_coord_map()
+
+        hub_count = len(self.model.get_hubs())
+        package_count = len(self.model.get_packages())
+        adj_mat = [[0 for _ in range(hub_count + package_count)] for _ in range(hub_count)]
+        self.adjacency_matrix = adj_mat
+
+    def _direct_path(self, start_cell: Cell, target_cell: Cell) -> list[Cell]:
+        """
         Return the shortest path between two cells on the hex grid.
 
         This method constructs the path directly by stepping from the start cell
@@ -94,19 +121,6 @@ class GraphBased(Strategy):
         list[Cell]
             An ordered list of cells representing the path from the start cell
             to the target cell.
-        """
-
-        self._build_coord_map()
-
-        hub_count = len(self.model.get_hubs())
-        package_count = len(self.model.get_packages())
-        adj_mat = [[0 for _ in range(hub_count + package_count)] for _ in range(hub_count)]
-        self.adjacency_matrix = adj_mat
-
-    def _direct_path(self, start_cell: Cell, target_cell: Cell) -> list[Cell]:
-        """
-        Return the shortest path between two cells on a hex grid
-        assuming there are no obstacles.
         """
 
         start_qrs = xy_to_qrs(start_cell.coordinate)
