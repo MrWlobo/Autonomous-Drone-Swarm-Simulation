@@ -39,7 +39,7 @@ class Drone(CellAgent):
         
         if cell:
             cell.add_agent(self)
-            self.altitude = model.get_elevation(self.cell.coordinate) + 10 # Note: altitude reffers to the lowest part of the drone (excluding its package's height)
+            self.altitude = model.get_elevation(self.cell.coordinate) + 50 # Note: altitude reffers to the lowest part of the drone (excluding its package's height)
 
         if assigned_packages is None:
             self.assigned_packages = []
@@ -121,10 +121,10 @@ class Drone(CellAgent):
         self.move_to(target)
 
     def _max_speed_nearby(self, distance):
-        if distance <= 10:
+        if distance <= 5:
             return 1
         else:
-            return 2 + (distance-10) // (16//self.get_acceleration())
+            return 1 + (distance) // (16//self.get_acceleration())
         
     def _is_near_hub(self):
         for hub in self.model.get_hubs():
@@ -286,7 +286,7 @@ class Drone(CellAgent):
                 target_cell = random.choice(neighbors)
             self.cur_speed_vec = normalize_hex_vector(hex_vector(self.cell, target_cell), 1)
         else:
-            self.cur_speed_vec = normalize_hex_vector(new_vec, new_speed+1)
+            self.cur_speed_vec = normalize_hex_vector(new_vec, min(new_speed+1, self.speed))
 
         # 5. physical move
         self._execute_hex_move()
@@ -300,6 +300,8 @@ class Drone(CellAgent):
             # Fallback: if assigned_time wasn't set earlier, set it now to avoid errors
             if package.assigned_time is None:
                 package.assigned_time = self.model.steps
+        else:
+            print('Cant pick up, package not assigned to drone')
 
     def dropoff(self) -> None:
         if self.package is None:

@@ -74,6 +74,7 @@ class Hangzhou35806InitialStateSetter(InitialStateSetter):
             p = Package(model, cell, 0.5, 2, drop_zones[i % len(drop_zones)])
             
             packages.append(p)
+        Hub.package_requests = packages
 
         drones = []
         for _ in range(model.num_drones):

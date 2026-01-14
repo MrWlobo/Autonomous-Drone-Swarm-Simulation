@@ -56,11 +56,11 @@ class HubSpawn(Strategy):
     
     def decide_for_hub(self, hub: Hub):
         # create requests
-        if hub.model.random.randint(1, 100) <= 3:
-            return HubAction.CREATE_DELIVERY_REQUEST, None
+        # if hub.model.random.randint(1, 100) <= 3:
+        #     return HubAction.CREATE_DELIVERY_REQUEST, None
         
         # deploy Drones
-        elif hub.package_requests and hub.stored_drones:
+        if hub.package_requests and hub.stored_drones:
             safe = True
             for drone in hub.model.get_drones():
                 if drone.cell is None:

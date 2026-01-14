@@ -37,5 +37,5 @@ class Package(CellAgent):
         # Record completion time
         self.delivery_time = self.model.steps
         
-        self.model.agents.remove(self.drop_zone)
+        self.model.agents.discard(self.drop_zone)
         self.model.completed_deliveries.append(self)
