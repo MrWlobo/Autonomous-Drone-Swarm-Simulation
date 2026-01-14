@@ -52,35 +52,24 @@ class Dummy(Strategy):
         if drone.cell is None:
             return DroneAction.WAIT, None
         
-        # 1. Logic for Delivery (Has package)
         if drone.package:
             target_cell = drone.package.drop_zone.cell
             
-            # If we are at the dropzone, drop it
             if drone.cell == target_cell:
                 return DroneAction.DROPOFF_PACKAGE, None
             
-            # Otherwise move there
             return DroneAction.MOVE_TO_CELL, target_cell
 
-        # 2. Logic for Pickup (Has assignment but no package)
         elif drone.assigned_packages:
-            # Simple dummy logic: always focus on the first assigned package
             target_package = drone.assigned_packages[0]
             
-            # If we are at the package location, pick it up
             if drone.cell == target_package.cell:
                 return DroneAction.PICKUP_PACKAGE, target_package
             
-            # Otherwise move there
             return DroneAction.MOVE_TO_CELL, target_package.cell
-
-        # 3. Logic for Return (No package, no assignment)
         else:
-            # If we have an assigned hub, go there
             target_hub = drone.hub
             
-            # If we don't have a hub (or it was destroyed), find the nearest one
             if not target_hub:
                 min_dist = float('inf')
                 nearest_hub = None
@@ -93,34 +82,20 @@ class Dummy(Strategy):
                 target_hub = nearest_hub
 
             if target_hub and target_hub.cell:
-                # If we are already at the hub, just wait to be collected by the Hub agent
                 if drone.cell == target_hub.cell:
                     return DroneAction.WAIT, None
                 
-                # Move back to base
                 return DroneAction.MOVE_TO_CELL, target_hub.cell
-            
-            # If no hubs exist at all, simply idle
+
             return DroneAction.WAIT, None
 
     def _decide_hub(self, hub: Hub) -> Tuple[HubAction, object]:
-        # 1. Collect incoming drones
-        # Check if there is a drone in the hub's cell that is idle (no package, no assignments)
         for agent in hub.cell.agents:
             if isinstance(agent, Drone):
-                # Only collect if it's not currently carrying something or trying to leave
                 if not agent.package and not agent.assigned_packages:
                     return HubAction.COLLECT_DRONE, agent
 
-        # 2. Deploy drones
-        # If we have drones in storage and packages are waiting in the global queue
         if hub.stored_drones and Hub.package_requests:
             return HubAction.DEPLOY_DRONE, None
-
-        # 3. Generate new requests
-        # Keep a buffer of requests active. 
-        # (This prevents the simulation from running out of tasks)
-        if len(Hub.package_requests) < 5 or (len(Hub.package_requests) < 20 and random.random() < 0.05):
-            return HubAction.CREATE_DELIVERY_REQUEST, None
 
         return HubAction.WAIT, None
