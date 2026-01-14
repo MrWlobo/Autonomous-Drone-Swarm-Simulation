@@ -14,7 +14,7 @@ class Hub(CellAgent):
     """Station for drones: charges them, sends them on missions, and collects them upon return."""
     package_requests: list[Package] = []
 
-    def __init__(self, model: DroneModel, cell: Cell = None, capacity: int = 5):
+    def __init__(self, model: DroneModel, cell: Cell = None, capacity: int = 10):
         super().__init__(model)
         self.stored_drones: list[Drone] = []
         self.incomming_drones: set[Drone] = set()
@@ -34,6 +34,10 @@ class Hub(CellAgent):
     
     def __hash__(self):
         return hash(self.unique_id)
+    
+    def is_full(self):
+        """Bool value, includes only stored drones, NOT INCOMING DRONES"""
+        return len(self.stored_drones) == self.capacity
 
     def step(self):
         action, target = self.model.strategy.decide(self)
@@ -41,9 +45,8 @@ class Hub(CellAgent):
         if action == HubAction.DEPLOY_DRONE:
             drone = self.stored_drones.pop()
             drone.cell = self.cell
+            drone.altitude = 10 + self.model.get_elevation(self.cell.coordinate)
             drone.assigned_packages = [Hub.package_requests.pop()]
-            
-            self.incomming_drones.add(drone)
 
         elif action == HubAction.COLLECT_DRONE:
             self.stored_drones.append(target)

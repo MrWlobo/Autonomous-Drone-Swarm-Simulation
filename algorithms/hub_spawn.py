@@ -32,19 +32,29 @@ class HubSpawn(Strategy):
         if drone.cell is not None and not drone.package and not drone.assigned_packages:
             if drone.hub is None:
                 drone.hub = get_closest_available_hub(drone.cell, drone.model.get_hubs())
+            if drone.hub is not None and drone.cell == drone.hub.cell:
+                if drone.get_altitude_above_ground() > 10:
+                    return DroneAction.DESCENT, 9
             if drone.hub is not None:
                 drone.hub.incomming_drones.add(drone)
                 return self.move_towards(drone, drone.hub.cell)
 
         # drop off package
         elif drone.package and drone.cell == drone.package.drop_zone.cell and hex_vector_len(drone.cur_speed_vec) <= 1:
-            return DroneAction.DROPOFF_PACKAGE, drone.cell
+            if drone.get_altitude_above_ground() <= 10:
+                return DroneAction.DROPOFF_PACKAGE, drone.cell
+            else:
+                return DroneAction.DESCENT, 9
         
         # pick up assigned package
         elif not drone.package and drone.assigned_packages:
             target_package = drone.assigned_packages[0]
             if drone.cell == target_package.cell and hex_vector_len(drone.cur_speed_vec) <= 1:
-                return DroneAction.PICKUP_PACKAGE, target_package
+                if drone.get_altitude_above_ground() <= 10:
+                    return DroneAction.PICKUP_PACKAGE, target_package
+                else:
+                    return DroneAction.DESCENT, 9
+                
             else:
                 return self.move_towards(drone, target_package.cell)
         
@@ -56,11 +66,11 @@ class HubSpawn(Strategy):
     
     def decide_for_hub(self, hub: Hub):
         # create requests
-        if hub.model.random.randint(1, 100) <= 3:
-            return HubAction.CREATE_DELIVERY_REQUEST, None
+        # if hub.model.random.randint(1, 100) <= 3:
+        #     return HubAction.CREATE_DELIVERY_REQUEST, None
         
         # deploy Drones
-        elif hub.package_requests and hub.stored_drones:
+        if hub.package_requests and hub.stored_drones:
             safe = True
             for drone in hub.model.get_drones():
                 if drone.cell is None:
@@ -77,15 +87,19 @@ class HubSpawn(Strategy):
                 continue # skip drones that are already stored/collected
             
             # check if drone is at the hub location
-            if drone.cell.coordinate == hub.cell.coordinate and drone.cell:
+            if drone.cell.coordinate == hub.cell.coordinate and drone.cell and drone in hub.incomming_drones:
                 if len(drone.assigned_packages)==0 and drone.package is None and hex_vector_len(drone.cur_speed_vec) <= 1:
                     if hub.capacity > len(hub.stored_drones):
-                        print('hub collect')
-                        return HubAction.COLLECT_DRONE, drone
+                        if drone.get_altitude_above_ground() < 10:
+                            print('hub collect')
+                            return HubAction.COLLECT_DRONE, drone
 
         return HubAction.WAIT, None
 
     def move_towards(self, drone: Drone, target_cell: Cell):
         if drone.cell == target_cell:
             return DroneAction.WAIT, drone.cell
+        if drone.get_altitude_above_ground() < 40:
+            return DroneAction.ASCENT, 55
         return DroneAction.MOVE_TO_CELL, target_cell
+

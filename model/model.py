@@ -41,6 +41,17 @@ def compute_avg_delivery_time(model: DroneModel):
         return 0
     return total_duration / valid_packages
 
+def compute_avg_delivery_time_minutes(model: DroneModel):
+    return compute_avg_delivery_time(model)/60
+
+def compute_deliveries_per_minute(model: DroneModel):
+    return len(model.completed_deliveries)/model.steps*60
+
+def compute_time_per_meter(model: DroneModel):
+    if model.meters_traveled == 0:
+        return 0
+    return model.time_traveled/model.meters_traveled
+
 def compute_collision_percentage(model: DroneModel):
     """Calculates the cumulative percentage of drones that have collided."""
     active = len(model.get_drones())
@@ -50,6 +61,28 @@ def compute_collision_percentage(model: DroneModel):
         return 0
     
     return (model.total_collisions / total_history) * 100
+
+def _get_drone_agls(model: DroneModel) -> list[float]:
+    """Helper to get list of Above Ground Level (AGL) altitudes for all active drones."""
+    drones = [d for d in model.get_drones() if d.cell is not None]
+    if not drones:
+        return []
+    return [d.altitude - model.get_elevation(d.cell.coordinate) for d in drones]
+
+def compute_min_altitude(model: DroneModel):
+    agls = _get_drone_agls(model)
+    return min(agls) if agls else 0
+
+def compute_mean_altitude(model: DroneModel):
+    agls = _get_drone_agls(model)
+    return sum(agls) / len(agls) if agls else 0
+
+def compute_max_altitude(model: DroneModel):
+    agls = _get_drone_agls(model)
+    return max(agls) if agls else 0
+
+def compute_active_drones(model: DroneModel):
+    return sum(1 for d in model.get_drones() if d.cell is not None)
 
 
 class DroneStats:
@@ -102,6 +135,7 @@ class DroneModel(Model):
             height: int = 50,
             num_drones: int = 2,
             num_packages: int = 4,
+            num_package_clusters: int = 5,
             num_hubs: int = 5,
             num_obstacles: int = 0,
             initial_state_setter_name: str = "random",
@@ -110,14 +144,21 @@ class DroneModel(Model):
             drone_acceleration: int = 1,
             drone_max_ascent_speed: float = 5,
             drone_max_descent_speed: float = 3,
-            drone_max_altitude: float = 50,
-            drone_min_altitude: float = 20,
+            drone_max_altitude: float = 150,
+            drone_min_altitude: float = 50,
             drone_height: float = 0.5,
             simulator: ABMSimulator = None,
             background: Path = None,
             show_gridlines: bool = True,
             save_every: int = 10,
             drone_safe_battery_level: int = 10, # Battery percentage
+            
+            # Plot display flags
+            show_active_drones_plot: bool = False,
+            show_collisions_plot: bool = False,
+            show_completed_deliveries_plot: bool = False,
+            show_avg_delivery_time_plot: bool = False,
+            show_altitude_plot: bool = False,
 
             # Stats for battery drain rate calculations
             drone_battery: int = 14_300_000,  # J
@@ -137,7 +178,16 @@ class DroneModel(Model):
         
         self.total_collisions = 0 
         self.total_dead_drones = 0
+        self.meters_traveled = 0
+        self.time_traveled = 0
         
+        # Initialize display flags
+        self.show_active_drones_plot = show_active_drones_plot
+        self.show_collisions_plot = show_collisions_plot
+        self.show_completed_deliveries_plot = show_completed_deliveries_plot
+        self.show_avg_delivery_time_plot = show_avg_delivery_time_plot
+        self.show_altitude_plot = show_altitude_plot
+
         self.output_dir = None
         self.output_file = None
         
@@ -164,6 +214,7 @@ class DroneModel(Model):
         )
         self.num_drones = num_drones
         self.num_packages = num_packages
+        self.num_package_clusters = num_package_clusters
         self.num_hubs = num_hubs
         self.num_obstacles = num_obstacles
 
@@ -200,10 +251,17 @@ class DroneModel(Model):
         
         self.datacollector = DataCollector(
             model_reporters={
-                "Active Drones": lambda m: len(m.get_drones()),
-                "Collisions(%)": compute_collision_percentage,
+                "Total Drones": lambda m: len(m.get_drones()),
+                "Active Drones": compute_active_drones,
+                "Collisions": lambda m: m.total_dead_drones,
                 "Completed Deliveries": lambda m: len(m.completed_deliveries),
-                "Avg Delivery Time": compute_avg_delivery_time
+                "Avg Delivery Time [minutes]": compute_avg_delivery_time_minutes,
+                "Deliveries Per Minute": compute_deliveries_per_minute,
+                "Time Per Meter [seconds]": compute_time_per_meter,
+                "Min Altitude": compute_min_altitude,
+                "Mean Altitude": compute_mean_altitude,
+                "Max Altitude": compute_max_altitude,
+                
             }
         )
 
@@ -247,9 +305,8 @@ class DroneModel(Model):
                 drone_speed = divide_hex_vector(drone.cur_speed_vec, num_check)
 
                 for _ in range(num_check + 1):
-                    if qrs_hex_distance(drone_last_pos, second_drone_last_pos) <= 2:
+                    if qrs_hex_distance(drone_last_pos, second_drone_last_pos) <= 2 and drone.check_for_collision_with_drone(second_drone):
                         x,y = qrs_to_xy(round_hex_vector(drone_last_pos))
-                        # print(x,y)
                         cell = self.grid[(x,y)]
                         collision_cells.append(cell)
                         

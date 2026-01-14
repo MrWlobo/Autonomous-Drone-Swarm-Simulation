@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from mesa.discrete_space import CellAgent, Cell
+from utils.distance import hex_distance
 
 from .drop_zone import DropZone
 if TYPE_CHECKING:
@@ -15,6 +16,7 @@ class Package(CellAgent):
         self.weight = weight # kg
         self.drop_zone = drop_zone
         self.model: DroneModel = model
+        self.travel_distance = hex_distance(cell, drop_zone.cell)
         
         # --- Metrics: Track timestamps ---
         self.assigned_time: int | None = None
@@ -37,5 +39,8 @@ class Package(CellAgent):
         # Record completion time
         self.delivery_time = self.model.steps
         
-        self.model.agents.remove(self.drop_zone)
+        self.model.agents.discard(self.drop_zone)
         self.model.completed_deliveries.append(self)
+        if self.assigned_time is not None and self.delivery_time is not None:
+            self.model.meters_traveled += self.travel_distance
+            self.model.time_traveled += self.delivery_time - self.assigned_time

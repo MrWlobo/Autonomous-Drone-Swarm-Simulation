@@ -2,7 +2,7 @@ import numpy as np
 from mesa.discrete_space import Cell
 
 def hex_distance(a: Cell, b: Cell):
-    """Computes the shortest path (Manhattan) distance between two hex cells.
+    """Computes the shortest (Manhattan) distance between two hex cells.
 
     Returns:
         int: The distance between cell a and cell b.
