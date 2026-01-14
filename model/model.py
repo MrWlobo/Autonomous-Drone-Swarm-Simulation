@@ -47,6 +47,11 @@ def compute_avg_delivery_time_minutes(model: DroneModel):
 def compute_deliveries_per_minute(model: DroneModel):
     return len(model.completed_deliveries)/model.steps*60
 
+def compute_time_per_meter(model: DroneModel):
+    if model.meters_traveled == 0:
+        return 0
+    return model.time_traveled/model.meters_traveled
+
 def compute_collision_percentage(model: DroneModel):
     """Calculates the cumulative percentage of drones that have collided."""
     active = len(model.get_drones())
@@ -169,6 +174,8 @@ class DroneModel(Model):
         
         self.total_collisions = 0 
         self.total_dead_drones = 0
+        self.meters_traveled = 0
+        self.time_traveled = 0
         
         # Initialize display flags
         self.show_active_drones_plot = show_active_drones_plot
@@ -242,8 +249,9 @@ class DroneModel(Model):
                 "Active Drones": compute_active_drones,
                 "Collisions": lambda m: m.total_dead_drones,
                 "Completed Deliveries": lambda m: len(m.completed_deliveries),
-                "Avg Delivery Time": compute_avg_delivery_time,
+                "Avg Delivery Time [minutes]": compute_avg_delivery_time_minutes,
                 "Deliveries Per Minute": compute_deliveries_per_minute,
+                "Time Per Meter [seconds]": compute_time_per_meter,
                 "Min Altitude": compute_min_altitude,
                 "Mean Altitude": compute_mean_altitude,
                 "Max Altitude": compute_max_altitude,

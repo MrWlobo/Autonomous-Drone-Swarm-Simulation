@@ -10,8 +10,9 @@ plot_active_drones = make_plot_component(["Total Drones", "Active Drones", "Coll
                                          post_process=lambda ax: ax.set_ylim(bottom=0))
 plot_completed_deliveries = make_plot_component(["Completed Deliveries"],
                                                 post_process=lambda ax: ax.set_ylim(bottom=0))
-plot_avg_delivery_time = make_plot_component(["Avg Delivery Time",
-                                              "Deliveries Per Minute"],
+plot_avg_delivery_time = make_plot_component(["Avg Delivery Time [minutes]",
+                                              "Deliveries Per Minute",
+                                              "Time Per Meter [seconds]"],
                                              post_process=lambda ax: ax.set_ylim(bottom=0))
 plot_altitude = make_plot_component(["Min Altitude", "Mean Altitude", "Max Altitude"],
                                     post_process=lambda ax: ax.set_ylim(bottom=0))
