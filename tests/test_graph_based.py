@@ -116,7 +116,6 @@ def GraphBasedInstance():
     drone_speed=model_params["drone_speed"]["value"],
     drone_acceleration=model_params["drone_acceleration"]["value"],
     drone_battery=model_params["drone_battery"]["value"],
-    drain_rate=model_params["drain_rate"]["value"],
     simulator=simulator,
     show_gridlines=model_params["show_gridlines"]["value"],
     )
@@ -130,19 +129,10 @@ def test__create_adjacency_matrix_size(GraphBasedInstance):
     assert len(GraphBasedInstance.adjacency_matrix) == len(GraphBasedInstance.model.get_hubs()), "Number of rows should be equal to the number of hubs."
     assert len(GraphBasedInstance.adjacency_matrix[0]) == len(GraphBasedInstance.model.get_packages()) + len(GraphBasedInstance.model.get_hubs()), "Number of columns should be equal to the sum of the numbers of hubs and packages."
 
-def test__neighbors_valid_coords(GraphBasedInstance):
+def test__direct_distance(GraphBasedInstance):
     GraphBasedInstance._create_adjacency_matrix()
-    coordinates = (20, 61)
-    neighbors = GraphBasedInstance._neighbors(Cell(coordinates, None))
-    for neighbor in neighbors:
-        assert abs(neighbor.coordinate[0] - coordinates[0]) <= 1
-        assert abs(neighbor.coordinate[1] - coordinates[1]) <= 1
-        assert neighbor.coordinate != coordinates
-
-def test__astar(GraphBasedInstance):
-    GraphBasedInstance._create_adjacency_matrix()
-    for drone in GraphBasedInstance.model.get_drones():
-        for package in GraphBasedInstance.model.get_packages():
-            drone_cell = drone.cell
-            package_cell = package.cell
-            assert GraphBasedInstance._astar(drone_cell, package_cell, hex_distance) is not None
+    for i, j in zip(range(20, 40), range(20, 40)):
+        for x, y in zip(range(20, 40), range(20, 40)):
+            c1 = Cell((i, j), [])
+            c2 = Cell((x, y), [])
+            assert len(GraphBasedInstance._direct_path(c1, c2)) == hex_distance(c1, c2) + 1

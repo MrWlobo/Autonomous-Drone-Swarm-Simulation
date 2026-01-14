@@ -136,36 +136,43 @@ class GraphBased(Strategy):
 
         return path
 
-    def _cost(self, path: list[Cell], hex_size: int = 2, safe_height: int = 10) -> int:
+    def _distance(self, path: list[Cell], hex_size: int = 2, safe_height: int = 10) -> tuple[int, float, float]:
         """
-        Calculate the traversal cost of a path considering distance and elevation.
+        Calculate the total traversal distance for a given path.
 
-        The cost is computed as the sum of:
-        1. The horizontal distance, proportional to the number of cells in the path
-           multiplied by the size of each hex (`hex_size`).
-        2. The vertical ascent needed to reach the maximum elevation along the path
-           plus a safety margin (`safe_height`) from the start.
-        3. The vertical descent needed to descend from the maximum elevation to
-           the target cell plus the safety margin.
+        This method computes the distance required to traverse a path by combining
+        horizontal movement across hex cells with vertical movement due to elevation
+        changes. The maximum elevation along the path is used to determine the
+        required ascent and descent, with an additional safety margin applied.
+
+        - Horizontal distance is based on the number of cells in the path and the
+          configured hex size.
+        - Vertical distance includes ascent from the start to the highest elevation
+          along the path and descent from that elevation to the target.
+        - A safety height margin is added to both ascent and descent calculations.
 
         Parameters
         ----------
         path : list[Cell]
-            An ordered list of cells representing the path from start to target.
+            An ordered list of cells representing the path from the start cell to
+            the target cell.
         hex_size : int, optional
-            The horizontal distance cost per hex cell (default is 2).
+            The horizontal distance represented by a single hex cell.
         safe_height : int, optional
-            The safety margin added to ascent and descent calculations (default is 10).
+            An additional vertical safety margin applied to ascent and descent.
 
         Returns
         -------
-        int
-            The total cost of traversing the path considering distance and elevation.
+        tuple[int, float, float]
+            A tuple containing:
+            - The total traversal distance.
+            - The total ascent distance.
+            - The total descent distance.
 
         Notes
         -----
-        - Elevation values are obtained from `self.model.get_elevation(cell.coordinate)`.
-        - The method assumes the path contains at least one cell.
+        - Elevation values are obtained using `self.model.get_elevation(cell.coordinate)`.
+        - The path is assumed to contain at least one cell.
         """
 
         max_elevation = 0
@@ -180,7 +187,45 @@ class GraphBased(Strategy):
         ascent_height = max_elevation + safe_height - start_elevation
         descent_height = max_elevation + safe_height - target_elevation
 
-        return len(path) * hex_size + ascent_height + descent_height
+        return len(path) * hex_size, ascent_height, descent_height
+
+    def _estimated_cost(self, drone: Drone, distance: int, ascent_height: float, descent_height: float, estimated_average_speed: float = 12.0) -> float:
+        """
+        Estimate the energy cost for a drone to traverse a path.
+
+        This method calculates the estimated total energy consumption required for a drone
+        to complete a path by combining the estimated costs of horizontal travel,
+        vertical ascent, and vertical descent. Each component is evaluated using
+        the drone’s energy model.
+
+        - Horizontal cost is based on the total distance and an estimated average speed.
+        - Ascent cost accounts for the energy required to gain altitude.
+        - Descent cost accounts for the energy required to lose altitude.
+
+        Parameters
+        ----------
+        drone : Drone
+            The drone for which the energy cost is being estimated.
+        distance : int
+            The total horizontal distance of the path.
+        ascent_height : float
+            The total vertical ascent required along the path.
+        descent_height : float
+            The total vertical descent required along the path.
+        estimated_average_speed : float, optional
+            The assumed average horizontal speed used for the estimation.
+
+        Returns
+        -------
+        float
+            The estimated total energy cost required to traverse the path.
+        """
+
+        cost_horizontal = drone.calculate_energy_drain(estimated_average_speed, 0, distance)
+        cost_ascent = drone.calculate_energy_drain(0, ascent_height, 0)
+        cost_descent = drone.calculate_energy_drain(0, -descent_height, 0)
+
+        return cost_horizontal + cost_ascent + cost_descent
 
     def _build_coord_map(self) -> None:
         """
