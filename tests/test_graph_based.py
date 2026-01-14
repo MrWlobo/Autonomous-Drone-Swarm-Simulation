@@ -108,7 +108,7 @@ def GraphBasedInstance():
 
 def test__create_adjacency_matrix_size(GraphBasedInstance):
     GraphBasedInstance._create_adjacency_matrix()
-    assert len(GraphBasedInstance.adjacency_matrix) == len(GraphBasedInstance.model.get_hubs()), "Number of rows should be equal to the number of hubs."
+    assert len(GraphBasedInstance.adjacency_matrix) == len(GraphBasedInstance.model.get_hubs()) + len(GraphBasedInstance.model.get_packages()), "Number of rows should be equal to the sum of the numbers of hubs and packages."
     assert len(GraphBasedInstance.adjacency_matrix[0]) == len(GraphBasedInstance.model.get_packages()) + len(GraphBasedInstance.model.get_hubs()), "Number of columns should be equal to the sum of the numbers of hubs and packages."
 
 def test__direct_distance(GraphBasedInstance):
@@ -118,3 +118,19 @@ def test__direct_distance(GraphBasedInstance):
             c1 = Cell((i, j), [])
             c2 = Cell((x, y), [])
             assert len(GraphBasedInstance._direct_path(c1, c2)) == hex_distance(c1, c2) + 1
+
+def test_find_best_path_does_not_crash(GraphBasedInstance):
+    GraphBasedInstance._create_adjacency_matrix()
+    drones = list(GraphBasedInstance.model.get_drones())
+    packages = list(GraphBasedInstance.model.get_packages())
+
+    if not drones or not packages:
+        pytest.skip("No drones or packages")
+
+    drone = drones[0]
+    drone.package = packages[0]
+
+    path = GraphBasedInstance._find_best_path(drone)
+    print(path)
+    print(type(path))
+    assert isinstance(path, list)

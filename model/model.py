@@ -63,6 +63,7 @@ class DroneStats:
             drone_min_altitude,
             drone_height,
             drone_battery,
+            drone_safe_battery_level,
 
             drone_mass,
             drone_front_area,
@@ -81,6 +82,7 @@ class DroneStats:
         self.drone_min_altitude = drone_min_altitude
         self.drone_height = drone_height
         self.drone_battery = drone_battery
+        self.drone_safe_battery_level = drone_safe_battery_level
 
         self.drone_mass = drone_mass
         self.drone_front_area = drone_front_area
@@ -115,6 +117,7 @@ class DroneModel(Model):
             background: Path = None,
             show_gridlines: bool = True,
             save_every: int = 10,
+            drone_safe_battery_level: int = 10, # Battery percentage
 
             # Stats for battery drain rate calculations
             drone_battery: int = 14_300_000,  # J
@@ -147,6 +150,7 @@ class DroneModel(Model):
             drone_min_altitude=drone_min_altitude,
             drone_height=drone_height,
             drone_battery=drone_battery,
+            drone_safe_battery_level=drone_safe_battery_level,
 
             drone_mass=drone_mass,
             drone_front_area=drone_front_area,

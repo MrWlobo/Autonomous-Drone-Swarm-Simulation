@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import heapq
+import itertools
 from typing import TYPE_CHECKING
 
 from agents.drop_zone import DropZone
@@ -102,17 +103,20 @@ class GraphBased(Strategy):
 
         hub_count = len(self.hub_list)
         package_count = len(self.drop_zone_list)
-        adj_mat = [[(0, 0., 0.) for _ in range(hub_count + package_count)] for _ in range(hub_count)]
+        adj_mat = [[(0, 0., 0.) for _ in range(hub_count + package_count)] for _ in range(hub_count + package_count)]
 
-        for i in range(hub_count):
+        for i in range(hub_count + package_count):
             for j in range(hub_count + package_count):
-                hub_cell = self.hub_list[i].cell
+                if j < hub_count:
+                    first_cell = self.hub_list[j].cell
+                else:
+                    first_cell = self.drop_zone_list[j - hub_count].cell
                 if j < hub_count:
                     other_cell = self.hub_list[j].cell
                 else:
                     other_cell = self.drop_zone_list[j - hub_count].cell
 
-                path = self._direct_path(hub_cell, other_cell)
+                path = self._direct_path(first_cell, other_cell)
                 adj_mat[i][j] = self._distance(path)
 
         self.adjacency_matrix = adj_mat
@@ -123,18 +127,23 @@ class GraphBased(Strategy):
             return []
 
         start_cell = drone.cell
-        drop_idx = len(self.hub_list) + self.drop_zone_list.index(drone.package)
-        start_edges = self._initialize_start_edges(drone, start_cell, drop_idx)
+        drop_idx = len(self.hub_list) + self.drop_zone_list.index(drone.package.drop_zone)
+        safe_battery_level = (self.model.drone_stats.drone_safe_battery_level * self.model.drone_stats.drone_battery) // 100
+
+        start_edges = self._initialize_start_edges(drone, start_cell, drop_idx, safe_battery_level)
+
+
 
         # Initialize priority queue
         heap = []
+        counter = itertools.count()
         for node_idx, battery_left, cost_so_far, node in start_edges:
-            heapq.heappush(heap, (cost_so_far, node_idx, battery_left, [(node, 0)]))
+            heapq.heappush(heap, (cost_so_far, next(counter), node_idx, battery_left, [(node, 0)]))
 
         visited = dict()
 
         while heap:
-            cost_so_far, node_idx, battery_left, path_so_far = heapq.heappop(heap)
+            cost_so_far, _, node_idx, battery_left, path_so_far = heapq.heappop(heap)
 
             key = (node_idx, battery_left)
             if key in visited and visited[key] <= cost_so_far:
@@ -158,6 +167,10 @@ class GraphBased(Strategy):
                 if distance == 0:
                     continue
 
+                # Disallow going to any drop zone except the assigned one
+                if neighbor_idx >= len(self.hub_list) and neighbor_idx != drop_idx:
+                    continue
+
                 energy_cost = self._estimated_cost(drone, distance, ascent, descent)
                 next_battery = battery_left - energy_cost
 
@@ -168,15 +181,16 @@ class GraphBased(Strategy):
                         self._estimated_cost(drone, *self.adjacency_matrix[neighbor_idx][h_idx])
                         for h_idx in range(len(self.hub_list))
                     )
-                    next_battery = max(next_battery, self.model.safe_battery_level + nearest_hub_energy)
+                    next_battery = max(next_battery, safe_battery_level + nearest_hub_energy)
 
-                if next_battery < self.model.safe_battery_level:
+                if next_battery < safe_battery_level:
                     continue  # cannot proceed safely
 
                 next_node = self.hub_list[neighbor_idx] if neighbor_idx < len(self.hub_list) \
                     else self.drop_zone_list[neighbor_idx - len(self.hub_list)]
 
                 heapq.heappush(heap, (cost_so_far + energy_cost,
+                                      next(counter),
                                       neighbor_idx,
                                       next_battery,
                                       path_so_far + [(next_node, next_battery)]))
@@ -184,7 +198,7 @@ class GraphBased(Strategy):
         # No feasible path found
         return []
 
-    def _initialize_start_edges(self, drone: Drone, start_cell: Cell, drop_idx: int):
+    def _initialize_start_edges(self, drone: Drone, start_cell: Cell, drop_idx: int, safe_battery_level: int):
         # Build initial edges from current cell to all hubs + direct drop zone
         start_edges = []
 
@@ -196,7 +210,7 @@ class GraphBased(Strategy):
 
             # Battery left after moving to this hub
             battery_left = drone.battery - energy_cost
-            if battery_left < self.model.safe_battery_level:
+            if battery_left < safe_battery_level:
                 continue
 
             # Partial recharge: enough to reach nearest hub safely
@@ -204,7 +218,7 @@ class GraphBased(Strategy):
                 self._estimated_cost(drone, *self.adjacency_matrix[hub_idx][h_idx])
                 for h_idx in range(len(self.hub_list))
             )
-            battery_left = max(battery_left, self.model.safe_battery_level + nearest_hub_energy)
+            battery_left = max(battery_left, safe_battery_level + nearest_hub_energy)
 
             start_edges.append((hub_idx, battery_left, energy_cost, hub))
 
@@ -214,7 +228,7 @@ class GraphBased(Strategy):
         distance, ascent, descent = self._distance(path)
         energy_cost = self._estimated_cost(drone, distance, ascent, descent)
         battery_left = drone.battery - energy_cost
-        if battery_left >= self.model.safe_battery_level:
+        if battery_left >= safe_battery_level:
             start_edges.append((drop_idx, battery_left, energy_cost, drone.package))
 
         return start_edges
