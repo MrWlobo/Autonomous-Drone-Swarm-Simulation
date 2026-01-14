@@ -99,8 +99,22 @@ class GraphBased(Strategy):
         self._build_coord_map()
 
         hub_count = len(self.model.get_hubs())
+        hub_list = list(self.model.get_hubs())
         package_count = len(self.model.get_packages())
+        package_list = list(self.model.get_packages())
         adj_mat = [[0 for _ in range(hub_count + package_count)] for _ in range(hub_count)]
+
+        for i in range(hub_count):
+            for j in range(hub_count + package_count):
+                hub_cell = hub_list[i].cell
+                if j < hub_count:
+                    other_cell = hub_list[j].cell
+                else:
+                    other_cell = package_list[j - hub_count].cell
+
+                path = self._direct_path(hub_cell, other_cell)
+                adj_mat[i][j] = self._distance(path)
+
         self.adjacency_matrix = adj_mat
 
     def _direct_path(self, start_cell: Cell, target_cell: Cell) -> list[Cell]:
@@ -130,7 +144,7 @@ class GraphBased(Strategy):
         current_qrs = start_qrs
 
         while current_qrs != target_qrs:
-            current_qrs = step_towards(current_qrs, target_qrs)
+            current_qrs = step_towards(current_qrs, target_qrs, self.model.grid.width, self.model.grid.height)
             xy = qrs_to_xy(current_qrs)
             path.append(self.coord_map[xy])
 

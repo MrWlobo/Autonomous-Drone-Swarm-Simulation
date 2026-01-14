@@ -126,6 +126,7 @@ def GraphBasedInstance():
 
 def test__create_adjacency_matrix_size(GraphBasedInstance):
     GraphBasedInstance._create_adjacency_matrix()
+    print(GraphBasedInstance.adjacency_matrix)
     assert len(GraphBasedInstance.adjacency_matrix) == len(GraphBasedInstance.model.get_hubs()), "Number of rows should be equal to the number of hubs."
     assert len(GraphBasedInstance.adjacency_matrix[0]) == len(GraphBasedInstance.model.get_packages()) + len(GraphBasedInstance.model.get_hubs()), "Number of columns should be equal to the sum of the numbers of hubs and packages."
 
