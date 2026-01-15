@@ -47,8 +47,8 @@ model_params = {
     },
     "algorithm_name": {
         "type": "Select",
-        "value": 'hub_spawn',
-        "values": ['dummy', 'hub_spawn', 'graph_based'],
+        "value": 'dummy',
+        "values": ['dummy', 'hub_spawn', 'graph_based', "rule_based"],
         "label": "Algorithm",
     },
     "initial_state_setter_name": {
@@ -78,7 +78,7 @@ model_params = {
         "value": 5,
         "label": "Number of Package Clusters",
         "min": 1,
-        "max": 500,
+        "max": 20,
         "step": 1,
     },
     "num_hubs": {

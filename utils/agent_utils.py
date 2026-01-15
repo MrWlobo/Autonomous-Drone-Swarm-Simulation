@@ -13,4 +13,7 @@ def get_closest_available_hub(cell: Cell, hubs: list[Hub]) -> Hub | None:
             distance = new_dist
             closest_hub = hub
     return closest_hub
-    
+
+
+def is_hub(agent):
+    return isinstance(agent, Hub)

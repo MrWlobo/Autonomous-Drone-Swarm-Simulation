@@ -8,6 +8,7 @@ from mesa.examples.basic.boid_flockers.app import model
 
 from agents.package import Package
 from algorithms.base import DroneAction
+from utils.agent_utils import is_hub
 from utils.distance import *
 import math
 import numpy as np
@@ -38,6 +39,8 @@ class Drone(CellAgent):
         self.cell = cell
 
         self.in_hub = False
+        if self.cell and any(is_hub(agent) for agent in self.cell.agents):
+            self.in_hub = True
         
         if cell:
             cell.add_agent(self)
