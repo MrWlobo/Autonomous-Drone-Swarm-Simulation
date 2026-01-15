@@ -375,7 +375,7 @@ class Drone(CellAgent):
         E_ascent = (mass * self.g * max(0, altitude_change)) / self.model.drone_stats.drone_climb_efficiency
         E_descent = mass * self.g * max(0, -altitude_change) * self.model.drone_stats.drone_descent_factor
 
-        return E_horizontal + E_ascent + E_descent
+        return abs(E_horizontal + E_ascent + E_descent)
 
     def charge(self, desired_battery_level: int) -> bool:
         """

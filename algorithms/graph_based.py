@@ -56,6 +56,8 @@ class GraphBased(Strategy):
 
         self.adjacency_matrix = None
         self.drone_paths = {}
+        self.drones_charging = {}
+        self.inactive_drones = set()
 
     def register_drone(self, drone):
         pass
@@ -75,6 +77,7 @@ class GraphBased(Strategy):
         return (None, None)
 
     def decide_for_drone(self, drone: Drone):
+        print(f"DRONE BATTERY: {drone.battery}")
         if drone.cell is None:
             print("No cell")
             return DroneAction.WAIT, None
@@ -82,8 +85,10 @@ class GraphBased(Strategy):
         if len(drone.assigned_packages) == 0 and drone not in self.drone_paths:
             # If has no task assigned, give him one
             print("Added package")
-            self._assign_nearest_package(drone)
-            return DroneAction.REST, None
+            if self._assign_nearest_package(drone):
+                return DroneAction.REST, None
+            else:
+                self.inactive_drones.add(drone)
 
         # Drone is flying towards and has a package assigned
         if not drone.in_hub and len(drone.assigned_packages) > 0 and not drone.package:
@@ -99,29 +104,57 @@ class GraphBased(Strategy):
                 print("Moved towards package")
                 return DroneAction.MOVE_TO_CELL, drone.assigned_packages[0].cell
 
-        # Drone collected the package, but has no path
-        if not drone.in_hub and drone.package and drone not in self.drone_paths:
+        # Drone has no path
+        if not drone.in_hub and drone not in self.drone_paths:
+            print("Created path")
             self._create_drone_path(drone)
-            print(f"Path: {self.drone_paths[drone]}")
 
-        # Drone collected the package, and has a path
-        if not drone.in_hub and drone.package and drone not in self.drone_paths:
-            if drone.cell.coordinate == self.drone_paths[drone][0].cell.coordinate:
-                self.drone_paths[drone][0].pop()
+        # Drone has a path
+        if not drone.in_hub and drone in self.drone_paths and self.drone_paths[drone]:
+            next_in_path = self.drone_paths[drone][0]
+            if drone.cell.coordinate == next_in_path[0].cell.coordinate:
+                target = self.drone_paths[drone].pop(0)
+
+                if len(self.drone_paths[drone]) == 0:
+                    print("Finished path")
+                    del self.drone_paths[drone]
+
+                if isinstance(target[0], DropZone):
+                    print("Dropped package")
+                    return DroneAction.DROPOFF_PACKAGE, None
+
+                if isinstance(target[0], Hub) and target[1] != 0:
+                    print("Starts charging")
+                    self.drones_charging[drone] = target[1]
+
+            else:
+                print(f"Move alongside path: {self.drone_paths[drone]}")
+                return DroneAction.MOVE_TO_CELL, next_in_path[0].cell
+
+        if drone.in_hub and drone in self.drones_charging:
+            print("Charging")
+            if drone.charge(self.drones_charging[drone]):
+                print("Finished charging")
+                del self.drones_charging[drone]
 
         print("Nothing")
         return DroneAction.WAIT, None
 
     def decide_for_hub(self, hub: Hub):
-        # If there are no drones above the hub, deploy the first drone with assigned task
-        # print(hub.cell.agents)
-        # if not any(isinstance(agent, Drone) for agent in hub.cell.agents):
-        #     print("No drones above hub")
-        for drone in hub.stored_drones:
-            print(f"Drone: {drone.assigned_packages}")
-            if len(drone.assigned_packages) > 0:
-                print("Deploy")
-                return HubAction.DEPLOY_DRONE, False
+        if not any(drone.cell.coordinate == hub.cell.coordinate for drone in self.model.get_drones() if drone.cell is not None):
+            for drone in hub.stored_drones:
+                print(f"Drone: {drone.assigned_packages}")
+                if len(drone.assigned_packages) > 0 and drone not in self.drones_charging and drone not in self.inactive_drones:
+                    print("Deploy")
+                    return HubAction.DEPLOY_DRONE, False
+
+        for drone in self.drones_charging:
+            if not drone.in_hub:
+                return HubAction.COLLECT_DRONE, drone
+
+        for drone in self.inactive_drones:
+            if not drone.in_hub:
+                return HubAction.COLLECT_DRONE, drone
 
         print("Hub nothing")
         return HubAction.WAIT, None
@@ -169,26 +202,20 @@ class GraphBased(Strategy):
         hub_count = len(self.hub_list)
         package_count = len(self.drop_zone_list)
 
-        distinct_package_count = len(self.distinct_package_cells)
-
-        adj_mat = [[(0, 0., 0.) for _ in range(hub_count + package_count + distinct_package_count)] for _ in range(hub_count + package_count + distinct_package_count)]
+        adj_mat = [[(0, 0., 0.) for _ in range(hub_count + package_count)] for _ in range(hub_count + package_count)]
 
         for i in range(hub_count + package_count):
             for j in range(hub_count + package_count):
 
                 if j < hub_count:
                     first_cell = self.hub_list[j].cell
-                elif j < hub_count + package_count:
-                    first_cell = self.drop_zone_list[j - hub_count].cell
                 else:
-                    first_cell = self.distinct_package_cells[j - hub_count - package_count]
+                    first_cell = self.drop_zone_list[j - hub_count].cell
 
                 if j < hub_count:
                     other_cell = self.hub_list[j].cell
-                elif j < hub_count + package_count:
-                    other_cell = self.drop_zone_list[j - hub_count].cell
                 else:
-                    other_cell = self.distinct_package_cells[j - hub_count - package_count]
+                    other_cell = self.drop_zone_list[j - hub_count].cell
 
                 path = self._direct_path(first_cell, other_cell)
                 adj_mat[i][j] = self._distance(path)
@@ -200,11 +227,9 @@ class GraphBased(Strategy):
         Computes and stores the optimal path for each drone that is currently
         carrying a package.
         """
-        self.drone_paths = {
-            drone: self._find_best_path(drone)
-        }
+        self.drone_paths[drone] = self._find_best_path(drone)
 
-    def _assign_nearest_package(self, drone: Drone) -> None:
+    def _assign_nearest_package(self, drone: Drone) -> bool:
         cell, distance = None, None
         for current_cell in self.distinct_package_cells:
             current_distance = hex_distance(drone.cell, current_cell)
@@ -212,10 +237,13 @@ class GraphBased(Strategy):
                 cell = current_cell
                 distance = current_distance
 
-        for package in (p for p in self.model.get_packages() if p is not None):
+        for package in (p for p in self.model.get_packages() if p is not None and p.cell is not None):
             if package.cell.coordinate == cell.coordinate and not package.assigned:
                 package.assigned = True
                 drone.assigned_packages.append(package)
+                return True
+
+        return False
 
     def _find_best_path(self, drone: Drone):
         """
@@ -321,7 +349,7 @@ class GraphBased(Strategy):
                     continue  # cannot proceed safely
 
                 next_node = self.hub_list[neighbor_idx] if neighbor_idx < len(self.hub_list) \
-                    else self.drop_zone_list[neighbor_idx - len(self.hub_list)]
+                    else self.drop_zone_list[neighbor_idx - len(self.hub_list) - len(self.distinct_package_cells)]
 
                 heapq.heappush(heap, (cost_so_far + energy_cost,
                                       next(counter),
@@ -377,7 +405,7 @@ class GraphBased(Strategy):
         start_edges = []
 
         # Edges to hubs
-        for hub_idx, hub in enumerate(self.hub_list):
+        for hub_idx, hub in enumerate([hub for hub in self.hub_list if hub.cell.coordinate != drone.cell.coordinate]):
             path = self._direct_path(start_cell, hub.cell)
             distance, ascent, descent = self._distance(path)
             energy_cost = self._estimated_cost(drone, distance, ascent, descent)
@@ -403,7 +431,7 @@ class GraphBased(Strategy):
         energy_cost = self._estimated_cost(drone, distance, ascent, descent)
         battery_left = drone.battery - energy_cost
         if battery_left >= safe_battery_level:
-            start_edges.append((drop_idx, battery_left, energy_cost, drone.package))
+            start_edges.append((drop_idx, battery_left, energy_cost, drone.package.drop_zone))
 
         return start_edges
 
