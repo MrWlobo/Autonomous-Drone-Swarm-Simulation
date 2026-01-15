@@ -47,12 +47,14 @@ class Hub(CellAgent):
             drone.cell = self.cell
             drone.altitude = 10 + self.model.get_elevation(self.cell.coordinate)
             drone.assigned_packages = [Hub.package_requests.pop()]
+            drone.in_hub = False
 
         elif action == HubAction.COLLECT_DRONE:
             self.stored_drones.append(target)
             self.incomming_drones.discard(target)
             target.cell = None
             target.hub = None
+            target.in_hub = True
 
         elif action == HubAction.CREATE_DELIVERY_REQUEST:
             empty_cells = [c for c in self.model.grid.all_cells.cells if len(c.agents) == 0]

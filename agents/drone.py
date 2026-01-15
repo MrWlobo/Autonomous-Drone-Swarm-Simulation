@@ -36,6 +36,10 @@ class Drone(CellAgent):
         self.strategy = model.strategy
         self.package = None
         self.cell = cell
+
+        self.in_hub = False
+        if self.cell and any(isinstance(agent, Hub) for agent in self.cell.agents):
+            self.in_hub = True
         
         if cell:
             cell.add_agent(self)
@@ -66,7 +70,7 @@ class Drone(CellAgent):
 
     def add_package(self, package: Package) -> None:
         """Assigns a package to the drone and records the assignment time."""
-        if package not in self.assigned_packages:
+        if package not in self.assigned_packages and not package.assigned:
             self.assigned_packages.append(package)
             package.assigned_time = self.model.steps
 
@@ -90,12 +94,14 @@ class Drone(CellAgent):
 
         elif action == DroneAction.ASCENT:
             self.change_altitude(target)
-            pass
 
         elif action == DroneAction.DESCENT:
             self.change_altitude(target)
 
-        if action != DroneAction.REST:
+        elif action == DroneAction.CHARGE:
+            pass
+
+        if action not in [DroneAction.REST, DroneAction.CHARGE]:
             pass
 
     def __eq__(self, other):
@@ -365,3 +371,22 @@ class Drone(CellAgent):
         E_descent = mass * self.g * max(0, -altitude_change) * self.model.drone_stats.drone_descent_factor
 
         return E_horizontal + E_ascent + E_descent
+
+    def charge(self, desired_battery_level: int) -> bool:
+        """
+        Increases the battery level by the drone's charge rate for a single
+        charging step and checks whether the desired battery level has been reached.
+
+        The amount added per call is defined by
+        `self.model.drone_stats.drone_charge_rate`.
+
+        Args:
+            desired_battery_level (int): Target battery level to reach or exceed.
+
+        Returns:
+            bool: True if the battery level is greater than or equal to the desired
+            battery level after charging; False otherwise.
+        """
+
+        self.battery += self.model.drone_stats.drone_charge_rate
+        return self.battery >= desired_battery_level
