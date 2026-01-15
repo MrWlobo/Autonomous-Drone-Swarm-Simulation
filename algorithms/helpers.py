@@ -18,3 +18,4 @@ def get_algorithm_instance(name: str, model: DroneModel):
         return GraphBased(model)
     if name == "rule_based":
         return RuleBased(model)
+    

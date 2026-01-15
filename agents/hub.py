@@ -5,9 +5,9 @@ from mesa.discrete_space import CellAgent, Cell
 from agents.package import Package
 from algorithms.base import HubAction
 from agents.drop_zone import DropZone
-from agents.drone import Drone
 
 if TYPE_CHECKING:
+    from agents.drone import Drone
     from model.model import DroneModel
     
 class Hub(CellAgent):
