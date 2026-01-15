@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from algorithms.dummy import Dummy
 from algorithms.graph_based import GraphBased
 from algorithms.hub_spawn import HubSpawn
+from algorithms.rule_based import RuleBased
 
 if TYPE_CHECKING:
     from model.model import DroneModel
@@ -15,3 +16,5 @@ def get_algorithm_instance(name: str, model: DroneModel):
         return HubSpawn(model)
     if name == "graph_based":
         return GraphBased(model)
+    if name == "rule_based":
+        return RuleBased(model)

@@ -4,8 +4,6 @@ from mesa.discrete_space import CellAgent, Cell
 import logging
 import random
 
-from mesa.examples.basic.boid_flockers.app import model
-
 from agents.package import Package
 from algorithms.base import DroneAction
 from utils.distance import *
