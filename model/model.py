@@ -161,9 +161,9 @@ class DroneModel(Model):
             show_completed_deliveries_plot: bool = False,
             show_avg_delivery_time_plot: bool = False,
             show_altitude_plot: bool = False,
-            drone_charge_rate: int = 5700, # J/s
 
             # Stats for battery drain rate calculations
+            drone_charge_rate: int = 5700,  # J/s
             drone_battery: int = 14_300_000,  # J
             drone_mass: float = 65, # kg
             drone_front_area: float = 1.06, # m^2

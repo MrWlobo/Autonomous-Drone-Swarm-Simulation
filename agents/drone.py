@@ -38,8 +38,6 @@ class Drone(CellAgent):
         self.cell = cell
 
         self.in_hub = False
-        if self.cell and any(isinstance(agent, Hub) for agent in self.cell.agents):
-            self.in_hub = True
         
         if cell:
             cell.add_agent(self)
@@ -99,7 +97,8 @@ class Drone(CellAgent):
             self.change_altitude(target)
 
         elif action == DroneAction.CHARGE:
-            pass
+            if self.in_hub:
+                self.charge(target)
 
         if action not in [DroneAction.REST, DroneAction.CHARGE]:
             pass
