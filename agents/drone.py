@@ -284,7 +284,8 @@ class Drone(CellAgent):
             change_vec = normalize_hex_vector(change_vec, accel_len)
 
         # 3. altitude change
-        self.altitude += self._calculate_altitude_change(target_cell, ground_repulsion, repulsion_z)
+        altitude_change = self._calculate_altitude_change(target_cell, ground_repulsion, repulsion_z)
+        self.altitude += altitude_change
 
         # 4. move vector change
         new_vec = add_hex_vectors(self.cur_speed_vec, change_vec)
@@ -299,6 +300,8 @@ class Drone(CellAgent):
 
         # 5. physical move
         self._execute_hex_move()
+
+        self.battery -= self.calculate_energy_drain(hex_vector_len(self.cur_speed_vec), altitude_change, hex_vector_len(self.cur_speed_vec))
 
         
 

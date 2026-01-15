@@ -48,7 +48,7 @@ model_params = {
     "algorithm_name": {
         "type": "Select",
         "value": 'dummy',
-        "values": ['dummy', 'hub_spawn', 'graph_based', "rule_based"],
+        "values": ['dummy', 'graph_based', "rule_based"],
         "label": "Algorithm",
     },
     "initial_state_setter_name": {

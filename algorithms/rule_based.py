@@ -6,7 +6,7 @@ from algorithms.base import Strategy, DroneAction, HubAction
 from agents.drone import Drone
 from agents.hub import Hub
 from agents.package import Package
-from utils.distance import hex_distance, qrs_to_xy, xy_to_qrs, round_hex_vector, hex_vector, add_hex_vectors, normalize_hex_vector
+from utils.distance import hex_distance, qrs_to_xy, xy_to_qrs, round_hex_vector, hex_vector, add_hex_vectors, normalize_hex_vector, hex_vector_len
 
 if TYPE_CHECKING:
     from model.model import DroneModel
@@ -44,7 +44,10 @@ class RuleBased(Strategy):
     def _decide_hub(self, hub: Hub) -> tuple[HubAction, object]:
         for agent in hub.cell.agents:
             if isinstance(agent, Drone):
-                if not agent.package and not agent.assigned_packages:
+                if (not agent.package and 
+                    not agent.assigned_packages and 
+                    hex_vector_len(agent.cur_speed_vec) <= 1 and 
+                    agent.get_altitude_above_ground() <= 10):
                     return HubAction.COLLECT_DRONE, agent
 
         if hub.stored_drones and Hub.package_requests:
@@ -71,24 +74,37 @@ class RuleBased(Strategy):
                 
                 if escape_vec == (0,0,0):
                     neighbors = list(drone.cell.get_neighborhood())
-                    return DroneAction.MOVE_TO_CELL, random.choice(neighbors)
+                    target_cell = random.choice(neighbors)
+                    return self._move_towards(drone, target_cell)
                 
                 target_hex = add_hex_vectors(xy_to_qrs(drone.cell.coordinate), escape_vec)
                 target_cell = self._hex_to_cell(target_hex)
-                return DroneAction.MOVE_TO_CELL, target_cell
+                return self._move_towards(drone, target_cell)
 
         if drone.package:
             target = drone.package.drop_zone.cell
             if drone.cell == target:
-                return DroneAction.DROPOFF_PACKAGE, None
-            return DroneAction.MOVE_TO_CELL, target
+                if hex_vector_len(drone.cur_speed_vec) <= 1:
+                    if drone.get_altitude_above_ground() <= 10:
+                        return DroneAction.DROPOFF_PACKAGE, None
+                    else:
+                        return DroneAction.DESCENT, 9
+                return DroneAction.WAIT, None
+            
+            return self._move_towards(drone, target)
 
         if drone.assigned_packages:
             target_pkg = drone.assigned_packages[0]
             self.claimed_package_ids.add(target_pkg.unique_id)
             if drone.cell == target_pkg.cell:
-                return DroneAction.PICKUP_PACKAGE, target_pkg
-            return DroneAction.MOVE_TO_CELL, target_pkg.cell
+                if hex_vector_len(drone.cur_speed_vec) <= 1:
+                    if drone.get_altitude_above_ground() <= 10:
+                        return DroneAction.PICKUP_PACKAGE, target_pkg
+                    else:
+                        return DroneAction.DESCENT, 9
+                return DroneAction.WAIT, None
+                
+            return self._move_towards(drone, target_pkg.cell)
 
         visible_packages = self._get_visible_packages(drone)
         
@@ -105,15 +121,27 @@ class RuleBased(Strategy):
                 Hub.package_requests.remove(closest_pkg)
             
             if closest_dist == 0:
-                return DroneAction.PICKUP_PACKAGE, closest_pkg
+                if hex_vector_len(drone.cur_speed_vec) <= 1:
+                    if drone.get_altitude_above_ground() <= 10:
+                        return DroneAction.PICKUP_PACKAGE, closest_pkg
+                    else:
+                        return DroneAction.DESCENT, 9
+                return DroneAction.WAIT, None
             else:
-                return DroneAction.MOVE_TO_CELL, closest_pkg.cell
+                return self._move_towards(drone, closest_pkg.cell)
 
         centroid_cell = self._calculate_centroid_attraction(drone, visible_packages)
         if centroid_cell:
-            return DroneAction.MOVE_TO_CELL, centroid_cell
+            return self._move_towards(drone, centroid_cell)
             
         return DroneAction.WAIT, None
+
+    def _move_towards(self, drone: Drone, target_cell: Cell) -> tuple[DroneAction, object]:
+        if drone.cell == target_cell:
+            return DroneAction.WAIT, None
+        if drone.get_altitude_above_ground() < 40:
+            return DroneAction.ASCENT, 55
+        return DroneAction.MOVE_TO_CELL, target_cell
 
     def _hex_to_cell(self, qrs):
         """Helper to safely convert hex coords back to a grid cell object."""
@@ -179,7 +207,7 @@ class RuleBased(Strategy):
             neighbors = list(drone.cell.get_neighborhood())
             if neighbors:
                 random_cell = random.choice(neighbors)
-                return DroneAction.MOVE_TO_CELL, random_cell
+                return self._move_towards(drone, random_cell)
 
         target_hub = drone.hub
         if not target_hub:
@@ -192,6 +220,10 @@ class RuleBased(Strategy):
                         target_hub = hub
         
         if target_hub and target_hub.cell:
-            if drone.cell != target_hub.cell:
-                return DroneAction.MOVE_TO_CELL, target_hub.cell
+            if drone.cell == target_hub.cell:
+                if drone.get_altitude_above_ground() > 10:
+                    return DroneAction.DESCENT, 9
+                return DroneAction.WAIT, None
+            return self._move_towards(drone, target_hub.cell)
+            
         return DroneAction.WAIT, None
