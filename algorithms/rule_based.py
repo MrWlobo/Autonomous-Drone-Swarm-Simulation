@@ -56,7 +56,7 @@ class RuleBased(Strategy):
                         break
             
             if airspace_clear:
-                return HubAction.DEPLOY_DRONE, None
+                return HubAction.DEPLOY_DRONE, True
 
         return HubAction.WAIT, None
 

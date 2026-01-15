@@ -100,6 +100,6 @@ class Dummy(Strategy):
                     return HubAction.COLLECT_DRONE, agent
 
         if hub.stored_drones and Hub.package_requests:
-            return HubAction.DEPLOY_DRONE, None
+            return HubAction.DEPLOY_DRONE, True
 
         return HubAction.WAIT, None

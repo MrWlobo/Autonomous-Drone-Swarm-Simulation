@@ -43,7 +43,7 @@ class Hub(CellAgent):
         action, target = self.model.strategy.decide(self)
 
         if action == HubAction.DEPLOY_DRONE:
-            self.deploy_drone()
+            self.deploy_drone(target)
 
         elif action == HubAction.COLLECT_DRONE:
             self.collect_drone(target)
@@ -54,11 +54,12 @@ class Hub(CellAgent):
         elif action == HubAction.WAIT:
             pass
 
-    def deploy_drone(self):
+    def deploy_drone(self, assign_from_requests: bool = True):
         drone = self.stored_drones.pop()
         drone.cell = self.cell
         drone.altitude = 10 + self.model.get_elevation(self.cell.coordinate)
-        drone.assigned_packages = [Hub.package_requests.pop()]
+        if assign_from_requests:
+            drone.assigned_packages = [Hub.package_requests.pop()]
         drone.in_hub = False
 
     def collect_drone(self, target):

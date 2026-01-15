@@ -232,7 +232,7 @@ class DroneModel(Model):
         self.simulator = simulator
         if self.simulator:
             self.simulator.setup(self)
-            
+
         self.strategy = get_algorithm_instance(algorithm_name, self)
         self.unique_id = 1
         
@@ -246,11 +246,11 @@ class DroneModel(Model):
                 preset_obj.set_model_params(self)
             elif preset_name != "None":
                 logging.warning(f"Preset with name {preset_name} doesn't exist.")
-        
+
         self.grid = HexGrid((self.width, self.height), torus=False, capacity=math.inf, random=self.random)
-        
+
         self.grid.height_layer = PropertyLayer("height", self.width, self.height, default_value=0, dtype=int)
-        
+
         self.initial_state_setter.set_initial_state(self)
         
         self.datacollector = DataCollector(
