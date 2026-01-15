@@ -70,7 +70,7 @@ model_params = {
         "value": 4,
         "label": "Number of Packages",
         "min": 1,
-        "max": 500,
+        "max": 50,
         "step": 1,
     },
     "num_package_clusters": {
