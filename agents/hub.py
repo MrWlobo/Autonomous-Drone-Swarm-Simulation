@@ -43,32 +43,41 @@ class Hub(CellAgent):
         action, target = self.model.strategy.decide(self)
 
         if action == HubAction.DEPLOY_DRONE:
-            drone = self.stored_drones.pop()
-            drone.cell = self.cell
-            drone.altitude = 10 + self.model.get_elevation(self.cell.coordinate)
-            drone.assigned_packages = [Hub.package_requests.pop()]
-            drone.in_hub = False
+            self.deploy_drone()
 
         elif action == HubAction.COLLECT_DRONE:
-            self.stored_drones.append(target)
-            self.incomming_drones.discard(target)
-            target.cell = None
-            target.hub = None
-            target.in_hub = True
+            self.collect_drone(target)
 
         elif action == HubAction.CREATE_DELIVERY_REQUEST:
-            empty_cells = [c for c in self.model.grid.all_cells.cells if len(c.agents) == 0]
-            if len(empty_cells) < 2:
-                return
-            self.model.random.shuffle(empty_cells)
-            package = Package(
-                model=self.model,
-                cell=empty_cells[0],
-                drop_zone=DropZone(self.model, empty_cells[1]),
-                weight=1,
-                height=0.1,
-            )
-            Hub.package_requests.append(package)
+            self.create_delivery_request()
 
         elif action == HubAction.WAIT:
             pass
+
+    def deploy_drone(self):
+        drone = self.stored_drones.pop()
+        drone.cell = self.cell
+        drone.altitude = 10 + self.model.get_elevation(self.cell.coordinate)
+        drone.assigned_packages = [Hub.package_requests.pop()]
+        drone.in_hub = False
+
+    def collect_drone(self, target):
+        self.stored_drones.append(target)
+        self.incomming_drones.discard(target)
+        target.cell = None
+        target.hub = None
+        target.in_hub = True
+
+    def create_delivery_request(self):
+        empty_cells = [c for c in self.model.grid.all_cells.cells if len(c.agents) == 0]
+        if len(empty_cells) < 2:
+            return
+        self.model.random.shuffle(empty_cells)
+        package = Package(
+            model=self.model,
+            cell=empty_cells[0],
+            drop_zone=DropZone(self.model, empty_cells[1]),
+            weight=1,
+            height=0.1,
+        )
+        Hub.package_requests.append(package)

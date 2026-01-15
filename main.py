@@ -54,7 +54,7 @@ model_params = {
     "initial_state_setter_name": {
         "type": "Select",
         "value": "hubs",
-        "values": ["random", "hubs"],
+        "values": ["random", "hubs", "packages_in_hubs"],
         "label": "Initial State",
     },
     "num_drones": {

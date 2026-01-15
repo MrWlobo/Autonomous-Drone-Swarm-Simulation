@@ -50,15 +50,24 @@ class GraphBased(Strategy):
     def __init__(self, model: DroneModel):
         super().__init__(model)
         self.coord_map = None
-        self.adjacency_matrix = None
         self.hub_list = list(self.model.get_hubs())
         self.drop_zone_list = list(self.model.get_drop_zones())
+
+        self.distinct_package_cells = []
+        for package in self.model.get_packages():
+            if not any(p.cell.coordinate == package.cell.coordinate for p in self.distinct_package_cells):
+                self.distinct_package_cells.append(package.cell)
+
+        self.adjacency_matrix = None
+        self._create_adjacency_matrix()
+
+        self.drone_paths = None
+        self._create_drone_paths()
 
     def register_drone(self, drone):
         pass
 
     def decide(self, agent):
-        self._create_adjacency_matrix()
         if isinstance(agent, Drone):
             return self.decide_for_drone(agent)
         elif isinstance(agent, Hub):
@@ -103,23 +112,54 @@ class GraphBased(Strategy):
 
         hub_count = len(self.hub_list)
         package_count = len(self.drop_zone_list)
-        adj_mat = [[(0, 0., 0.) for _ in range(hub_count + package_count)] for _ in range(hub_count + package_count)]
+
+        distinct_package_count = len(self.distinct_package_cells)
+
+        adj_mat = [[(0, 0., 0.) for _ in range(hub_count + package_count + distinct_package_count)] for _ in range(hub_count + package_count + distinct_package_count)]
 
         for i in range(hub_count + package_count):
             for j in range(hub_count + package_count):
+
                 if j < hub_count:
                     first_cell = self.hub_list[j].cell
-                else:
+                elif j < hub_count + package_count:
                     first_cell = self.drop_zone_list[j - hub_count].cell
+                else:
+                    first_cell = self.distinct_package_cells[j - hub_count - package_count]
+
                 if j < hub_count:
                     other_cell = self.hub_list[j].cell
-                else:
+                elif j < hub_count + package_count:
                     other_cell = self.drop_zone_list[j - hub_count].cell
+                else:
+                    other_cell = self.distinct_package_cells[j - hub_count - package_count]
 
                 path = self._direct_path(first_cell, other_cell)
                 adj_mat[i][j] = self._distance(path)
 
         self.adjacency_matrix = adj_mat
+
+    def _create_drone_paths(self) -> None:
+        """
+        Computes and stores the optimal path for each drone that is currently
+        carrying a package.
+        """
+        self.drone_paths = {
+            drone: self._find_best_path(drone) for drone in self.model.get_drones() if drone.package is not None
+        }
+
+    def _assign_nearest_package(self, drone: Drone) -> None:
+        cell, distance = None, None
+        for current_cell in self.distinct_package_cells:
+            current_distance = hex_distance(drone.cell, current_cell)
+            if distance is None or distance > current_distance:
+                cell = current_cell
+                distance = current_distance
+
+        for package in self.model.get_packages():
+            if package.cell.coordinate == cell.coordinate and not package.assigned:
+                package.assigned = True
+                drone.assigned_packages.append(package)
 
     def _find_best_path(self, drone: Drone):
         """
