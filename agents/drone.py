@@ -301,7 +301,7 @@ class Drone(CellAgent):
         # 5. physical move
         self._execute_hex_move()
 
-        self.battery -= self.calculate_energy_drain(self, hex_vector_len(self.cur_speed_vec), altitude_change, hex_vector_len(self.cur_speed_vec))
+        self.battery -= self.calculate_energy_drain(hex_vector_len(self.cur_speed_vec), altitude_change, hex_vector_len(self.cur_speed_vec))
 
         
 
