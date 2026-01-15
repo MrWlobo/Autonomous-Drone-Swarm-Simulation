@@ -17,6 +17,7 @@ class Package(CellAgent):
         self.drop_zone = drop_zone
         self.model: DroneModel = model
         self.travel_distance = hex_distance(cell, drop_zone.cell)
+        self.assigned = False
         
         # --- Metrics: Track timestamps ---
         self.assigned_time: int | None = None

@@ -97,6 +97,7 @@ class DroneStats:
             drone_height,
             drone_battery,
             drone_safe_battery_level,
+            drone_charge_rate,
 
             drone_mass,
             drone_front_area,
@@ -116,6 +117,7 @@ class DroneStats:
         self.drone_height = drone_height
         self.drone_battery = drone_battery
         self.drone_safe_battery_level = drone_safe_battery_level
+        self.drone_charge_rate = drone_charge_rate
 
         self.drone_mass = drone_mass
         self.drone_front_area = drone_front_area
@@ -159,6 +161,7 @@ class DroneModel(Model):
             show_completed_deliveries_plot: bool = False,
             show_avg_delivery_time_plot: bool = False,
             show_altitude_plot: bool = False,
+            drone_charge_rate: int = 5700, # J/s
 
             # Stats for battery drain rate calculations
             drone_battery: int = 14_300_000,  # J
@@ -201,6 +204,7 @@ class DroneModel(Model):
             drone_height=drone_height,
             drone_battery=drone_battery,
             drone_safe_battery_level=drone_safe_battery_level,
+            drone_charge_rate=drone_charge_rate,
 
             drone_mass=drone_mass,
             drone_front_area=drone_front_area,
