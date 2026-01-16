@@ -55,6 +55,8 @@ class Hub(CellAgent):
             pass
 
     def deploy_drone(self, assign_from_requests: bool = True):
+        if assign_from_requests is None:
+            assign_from_requests = True
         drone = self.stored_drones.pop()
         drone.cell = self.cell
         drone.altitude = 10 + self.model.get_elevation(self.cell.coordinate)

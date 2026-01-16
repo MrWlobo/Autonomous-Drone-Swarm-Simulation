@@ -40,7 +40,9 @@ class HubSpawn(Strategy):
                 return self.move_towards(drone, drone.hub.cell)
 
         # drop off package
-        elif drone.package and drone.cell == drone.package.drop_zone.cell and hex_vector_len(drone.cur_speed_vec) <= 1:
+        elif drone.package and drone.cell == drone.package.drop_zone.cell:
+            if hex_vector_len(drone.cur_speed_vec) > 1:
+                return self.move_towards(drone, drone.package.drop_zone.cell)
             if drone.get_altitude_above_ground() <= 10:
                 return DroneAction.DROPOFF_PACKAGE, drone.cell
             else:

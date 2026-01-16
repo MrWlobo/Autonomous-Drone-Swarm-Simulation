@@ -1,130 +1,109 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING, Tuple, Union
-import random
-
-from algorithms.base import Strategy, DroneAction, HubAction
+from agents.drop_zone import DropZone
+from agents.package import Package
+from algorithms.base import Strategy, HubAction, DroneAction
+from mesa.discrete_space import Cell
 from agents.drone import Drone
 from agents.hub import Hub
-from utils.distance import hex_distance, hex_vector_len
-
-if TYPE_CHECKING:
-    from model.model import DroneModel
-    from mesa.discrete_space import Cell
+from agents.collision import Collision
+from utils.distance import *
+from utils.agent_utils import get_closest_available_hub
 
 class Dummy(Strategy):
-    """
-    A simple baseline strategy with basic flight physics.
-    """
-
-    def __init__(self, model: DroneModel) -> None:
-        self.model = model
-        self.assignments_done = False
-    
-    def step(self):
-        if not self.assignments_done:
-            packages = self.model.get_packages()
-            drones = self.model.get_drones()
-            if drones:
-                for i, package in enumerate(packages):
-                    drone_index = i % len(drones)
-                    drones[drone_index].add_package(package)
-                
-            self.assignments_done = True
-
-    def register_drone(self, drone: Drone):
+    def register_drone(self, drone):
         pass
 
-    def decide(self, agent: Union[Drone, Hub]) -> Tuple[Union[DroneAction, HubAction], object]:
+    def decide(self, agent):
         if isinstance(agent, Drone):
-            return self._decide_drone(agent)
+            return self.decide_for_drone(agent)
         elif isinstance(agent, Hub):
-            return self._decide_hub(agent)
-        else:
-            return None, None
-
-    def _decide_drone(self, drone: Drone) -> Tuple[DroneAction, object]:
-        if drone.cell is None:
-            return DroneAction.WAIT, None
+            return self.decide_for_hub(agent)
+        elif isinstance(agent, Package):
+            return (None, None)
+        elif isinstance(agent, DropZone):
+            return (None, None)
+        elif isinstance(agent, Collision):
+            return (None, None)
         
-        if drone.package:
-            target_cell = drone.package.drop_zone.cell
-            
-            if drone.cell == target_cell:
-                if hex_vector_len(drone.cur_speed_vec) <= 1:
-                    if drone.get_altitude_above_ground() <= 10:
-                        return DroneAction.DROPOFF_PACKAGE, None
-                    else:
-                        return DroneAction.DESCENT, 9
-                else:
-                    return DroneAction.WAIT, None
-            
-            return self._move_towards(drone, target_cell)
+        return (None, None)
+    
+        
+    def decide_for_drone(self, drone: Drone):
+        # if idle, go home to Hub
+        if drone.cell is not None and not drone.package and not drone.assigned_packages:
+            if drone.hub is None:
+                drone.hub = get_closest_available_hub(drone.cell, drone.model.get_hubs())
+            if drone.hub is not None and drone.cell == drone.hub.cell:
+                if drone.get_altitude_above_ground() > 10:
+                    return DroneAction.DESCENT, 9
+            if drone.hub is not None:
+                drone.hub.incomming_drones.add(drone)
+                return self.move_towards(drone, drone.hub.cell)
 
-        elif drone.assigned_packages:
+        # drop off package
+        elif drone.package and drone.cell == drone.package.drop_zone.cell:
+            if hex_vector_len(drone.cur_speed_vec) > 1:
+                return self.move_towards(drone, drone.package.drop_zone.cell)
+            if drone.get_altitude_above_ground() <= 10:
+                return DroneAction.DROPOFF_PACKAGE, drone.cell
+            else:
+                return DroneAction.DESCENT, 9
+        
+        # pick up assigned package
+        elif not drone.package and drone.assigned_packages:
             target_package = drone.assigned_packages[0]
-            
             if drone.cell == target_package.cell:
-                if hex_vector_len(drone.cur_speed_vec) <= 1:
-                    if drone.get_altitude_above_ground() <= 10:
-                        return DroneAction.PICKUP_PACKAGE, target_package
-                    else:
-                        return DroneAction.DESCENT, 9
+                if hex_vector_len(drone.cur_speed_vec) > 1:
+                    return self.move_towards(drone, target_package.cell)
+                if drone.get_altitude_above_ground() <= 10:
+                    return DroneAction.PICKUP_PACKAGE, target_package
                 else:
-                    return DroneAction.WAIT, None
-            
-            return self._move_towards(drone, target_package.cell)
-
-        else:
-            target_hub = drone.hub
-            
-            if not target_hub:
-                min_dist = float('inf')
-                nearest_hub = None
-                for hub in self.model.get_hubs():
-                    if hub.cell:
-                        dist = hex_distance(drone.cell, hub.cell)
-                        if dist < min_dist:
-                            min_dist = dist
-                            nearest_hub = hub
-                target_hub = nearest_hub
-
-            if target_hub and target_hub.cell:
-                if drone.cell == target_hub.cell:
-                    if drone.get_altitude_above_ground() > 10:
-                        return DroneAction.DESCENT, 9
-                    return DroneAction.WAIT, None
+                    return DroneAction.DESCENT, 9
                 
-                return self._move_towards(drone, target_hub.cell)
-
-            return DroneAction.WAIT, None
-
-    def _decide_hub(self, hub: Hub) -> Tuple[HubAction, object]:
-        for agent in hub.cell.agents:
-            if isinstance(agent, Drone):
-                if (not agent.package and
-                    not agent.assigned_packages and
-                    hex_vector_len(agent.cur_speed_vec) <= 1 and
-                    agent.get_altitude_above_ground() <= 10):
-
-                    return HubAction.COLLECT_DRONE, agent
-
-        if hub.stored_drones and Hub.package_requests:
-            safe_to_launch = True
-            for agent in hub.cell.agents:
-                if isinstance(agent, Drone) and agent.get_altitude_above_ground() < 20:
-                    safe_to_launch = False
-                    break
-
-            if safe_to_launch:
+            else:
+                return self.move_towards(drone, target_package.cell)
+        
+        # carrying package, move to DropZone
+        elif drone.package:
+            return self.move_towards(drone, drone.package.drop_zone.cell)
+        
+        return DroneAction.WAIT, None
+    
+    def decide_for_hub(self, hub: Hub):
+        # create requests
+        # if hub.model.random.randint(1, 100) <= 3:
+        #     return HubAction.CREATE_DELIVERY_REQUEST, None
+        
+        # deploy Drones
+        if hub.package_requests and hub.stored_drones:
+            safe = True
+            for drone in hub.model.get_drones():
+                if drone.cell is None:
+                    continue
+                if hex_distance(hub.cell, drone.cell) <= drone.get_acceleration()*2 + 5:
+                    safe = False
+            if safe:
+                print('hub deploy')
                 return HubAction.DEPLOY_DRONE, None
+        
+        # collect Drones
+        for drone in hub.model.get_drones():
+            if drone.cell is None:
+                continue # skip drones that are already stored/collected
+            
+            # check if drone is at the hub location
+            if drone.cell.coordinate == hub.cell.coordinate and drone.cell and drone in hub.incomming_drones:
+                if len(drone.assigned_packages)==0 and drone.package is None and hex_vector_len(drone.cur_speed_vec) <= 1:
+                    if hub.capacity > len(hub.stored_drones):
+                        if drone.get_altitude_above_ground() < 10:
+                            print('hub collect')
+                            return HubAction.COLLECT_DRONE, drone
 
         return HubAction.WAIT, None
 
-    def _move_towards(self, drone: Drone, target_cell: Cell) -> Tuple[DroneAction, object]:
+    def move_towards(self, drone: Drone, target_cell: Cell):
         if drone.cell == target_cell:
             return DroneAction.WAIT, drone.cell
-
         if drone.get_altitude_above_ground() < 40:
             return DroneAction.ASCENT, 55
-
         return DroneAction.MOVE_TO_CELL, target_cell
+
