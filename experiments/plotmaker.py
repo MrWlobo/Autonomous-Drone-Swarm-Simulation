@@ -69,4 +69,4 @@ def generate_five_drone_plots(input_csv):
     print("Wygenerowano 5 wykresów.")
 
 # Przykład użycia:
-generate_five_drone_plots('run_2026_01_15__23_47_46/model_data.csv')
+generate_five_drone_plots('run_2026_01_16__08_33_03/model_data.csv')
